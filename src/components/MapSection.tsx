@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { sounds } from "../lib/sounds";
+import { getStoredItem, setStoredItem } from "../lib/storage";
 
 const STORAGE_KEY = "geoseeker_game_state";
 
@@ -201,7 +202,7 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
       hl = { lat: parseFloat(urlLat), lng: parseFloat(urlLng) };
     }
 
-    const savedStr = localStorage.getItem(STORAGE_KEY);
+    const savedStr = getStoredItem(STORAGE_KEY);
     let savedState = null;
     if (savedStr) {
       try {
@@ -304,7 +305,7 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
   const [isWaypointMode, setIsWaypointMode] = useState(false);
 
   const [showTutorial, setShowTutorial] = useState(() => {
-    return localStorage.getItem("geoseeker_tutorial_seen") !== "true";
+    return getStoredItem("geoseeker_tutorial_seen") !== "true";
   });
 
   useEffect(() => {
@@ -316,7 +317,7 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
   }, [isRestored]);
 
   useEffect(() => {
-    localStorage.setItem(
+    setStoredItem(
       STORAGE_KEY,
       JSON.stringify({
         hiddenLocation,
@@ -340,7 +341,7 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
 
   const dismissTutorial = () => {
     sounds.click();
-    localStorage.setItem("geoseeker_tutorial_seen", "true");
+    setStoredItem("geoseeker_tutorial_seen", "true");
     setShowTutorial(false);
   };
 

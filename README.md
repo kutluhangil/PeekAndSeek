@@ -22,9 +22,7 @@ Peek & Seek is a premium hide-and-seek game built around Google Maps, Street Vie
 
 ## Usage Screenshot
 
-![Peek and Seek UI preview](docs/usage-preview.svg)
-
-This preview is a stylized placeholder. Replace it with a real capture when you have one.
+![Peek and Seek UI preview](docs/usage-preview.png)
 
 ## Architecture Diagram
 
@@ -52,6 +50,16 @@ flowchart LR
 
 - Node.js 18 or newer
 - A Google Maps API key with the required Maps and Street View services enabled
+
+## Google Cloud Setup
+
+If the map shows `AuthFailure` or `ApiNotActivatedMapError`, the key is present but the Google Cloud project is not fully configured yet.
+
+- Enable `Maps JavaScript API` in the Google Cloud project.
+- Enable `Street View Static API` and `Geocoding API` for the visual feed and clue generation.
+- Make sure billing is active on the project.
+- Add a local referrer allowance for development, such as `http://localhost:3000/*`.
+- If you use API restrictions, allow all three APIs above for the key.
 
 ## Setup
 
@@ -87,7 +95,8 @@ npm run preview
 
 - `npm run dev` starts the Express + Vite development server on port `3000`.
 - `npm run build` generates the production bundle.
-- `npm run preview` serves the built app locally.
+- `npm run preview` serves the built app through the production server.
+- `npm run start` builds and then launches the production server.
 - `npm run lint` runs the TypeScript compiler with `--noEmit`.
 - `npm run clean` removes the `dist` folder.
 

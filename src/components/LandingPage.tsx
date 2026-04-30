@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { Key, Compass, MapPin, Moon, Sun, Volume2 } from 'lucide-react';
-import { sounds } from '../lib/sounds';
+import React, { useState, useEffect } from "react";
+import { motion } from "motion/react";
+import { Key, Compass, MapPin, Moon, Sun, Volume2 } from "lucide-react";
+import { sounds } from "../lib/sounds";
+import { getStoredItem, setStoredItem } from "../lib/storage";
 
 interface LandingPageProps {
   onStartGame: () => void;
@@ -10,15 +11,28 @@ interface LandingPageProps {
 }
 
 const TopoContour = () => (
-  <svg className="absolute w-[180%] h-[180%] md:w-full md:h-full opacity-5 pointer-events-none text-foreground top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" viewBox="0 0 800 600" fill="none" stroke="currentColor">
+  <svg
+    className="absolute w-[180%] h-[180%] md:w-full md:h-full opacity-5 pointer-events-none text-foreground top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+    viewBox="0 0 800 600"
+    fill="none"
+    stroke="currentColor"
+  >
     <path d="M-100,300 C150,150 400,450 900,200" strokeWidth="0.5" />
     <path d="M-100,330 C160,180 410,480 900,230" strokeWidth="0.5" />
     <path d="M-100,360 C170,210 420,510 900,260" strokeWidth="0.5" />
     <path d="M-100,390 C180,240 430,540 900,290" strokeWidth="0.5" />
-    
-    <path d="M50,100 Q 200,50 350,150 T 600,100" strokeWidth="1" strokeDasharray="4 4" />
-    <path d="M150,400 Q 300,500 450,400 T 750,550" strokeWidth="1" strokeDasharray="4 4" />
-    
+
+    <path
+      d="M50,100 Q 200,50 350,150 T 600,100"
+      strokeWidth="1"
+      strokeDasharray="4 4"
+    />
+    <path
+      d="M150,400 Q 300,500 450,400 T 750,550"
+      strokeWidth="1"
+      strokeDasharray="4 4"
+    />
+
     {/* Concentric rings like elevation */}
     <ellipse cx="600" cy="400" rx="30" ry="20" strokeWidth="0.5" />
     <ellipse cx="600" cy="400" rx="60" ry="40" strokeWidth="0.5" />
@@ -29,32 +43,42 @@ const TopoContour = () => (
 );
 
 const CornerBracket = ({ className }: { className?: string }) => (
-  <svg className={`absolute w-6 h-6 text-foreground/40 ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+  <svg
+    className={`absolute w-6 h-6 text-foreground/40 ${className}`}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1"
+  >
     <path d="M 24 0 L 0 0 L 0 24" />
   </svg>
 );
 
-export default function LandingPage({ onStartGame, apiKey, onSaveKey }: LandingPageProps) {
-  const [keyInput, setKeyInput] = useState('');
-  const [difficulty, setDifficulty] = useState('medium');
+export default function LandingPage({
+  onStartGame,
+  apiKey,
+  onSaveKey,
+}: LandingPageProps) {
+  const [keyInput, setKeyInput] = useState("");
+  const [difficulty, setDifficulty] = useState("medium");
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    if (localStorage.getItem('theme') === 'dark') {
+    if (getStoredItem("theme") === "dark") {
       setIsDark(true);
-      document.documentElement.classList.add('dark');
+      document.documentElement.classList.add("dark");
     }
   }, []);
 
   const toggleTheme = () => {
     sounds.click();
     if (isDark) {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+      document.documentElement.classList.remove("dark");
+      setStoredItem("theme", "light");
       setIsDark(false);
     } else {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
+      document.documentElement.classList.add("dark");
+      setStoredItem("theme", "dark");
       setIsDark(true);
     }
   };
@@ -70,26 +94,28 @@ export default function LandingPage({ onStartGame, apiKey, onSaveKey }: LandingP
   const handleStart = () => {
     sounds.click();
     const url = new URL(window.location.href);
-    url.searchParams.set('difficulty', difficulty);
-    window.history.replaceState({}, '', url);
+    url.searchParams.set("difficulty", difficulty);
+    window.history.replaceState({}, "", url);
     onStartGame();
   };
 
   return (
     <main className="relative flex-1 flex items-center justify-center min-h-[100dvh] bg-background overflow-hidden cartography-grid">
-      
       <div className="absolute top-6 right-6 z-20 flex items-center gap-4">
-        <button onClick={toggleTheme} className="p-2 border border-border bg-card rounded-full text-foreground hover:bg-muted-bg transition-colors shadow-sm">
+        <button
+          onClick={toggleTheme}
+          className="p-2 border border-border bg-card rounded-full text-foreground hover:bg-muted-bg transition-colors shadow-sm"
+        >
           {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
       </div>
 
-      <img 
-        src="https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg" 
-        alt="World Map Silhouette" 
-        className={`absolute w-[300%] md:w-[150%] max-w-none lg:w-[120%] lg:max-w-none h-auto pointer-events-none top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply ${isDark ? 'opacity-[0.03] invert' : 'opacity-[0.06]'}`}
+      <img
+        src="https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg"
+        alt="World Map Silhouette"
+        className={`absolute w-[300%] md:w-[150%] max-w-none lg:w-[120%] lg:max-w-none h-auto pointer-events-none top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply ${isDark ? "opacity-[0.03] invert" : "opacity-[0.06]"}`}
       />
-      
+
       <TopoContour />
 
       {/* Compass Rose Decoration */}
@@ -98,7 +124,7 @@ export default function LandingPage({ onStartGame, apiKey, onSaveKey }: LandingP
       </div>
 
       <div className="relative z-10 w-full max-w-xl mx-auto px-6">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
@@ -112,7 +138,9 @@ export default function LandingPage({ onStartGame, apiKey, onSaveKey }: LandingP
 
           {/* Mini header info */}
           <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-muted mb-12 border-b border-border/50 pb-4">
-            <span className="flex items-center gap-2"><MapPin className="w-3 h-3"/> System Boot</span>
+            <span className="flex items-center gap-2">
+              <MapPin className="w-3 h-3" /> System Boot
+            </span>
             <span>v 2.0 / Cartographer</span>
           </div>
 
@@ -121,7 +149,8 @@ export default function LandingPage({ onStartGame, apiKey, onSaveKey }: LandingP
               Peek & Seek
             </h1>
             <p className="text-[14px] text-muted leading-relaxed font-light mx-auto max-w-sm">
-              An intricate game of global hide and seek. Enter coordinates, decipher clues, and track the rogue AI across the globe.
+              An intricate game of global hide and seek. Enter coordinates,
+              decipher clues, and track the rogue AI across the globe.
             </p>
           </div>
 
@@ -129,12 +158,15 @@ export default function LandingPage({ onStartGame, apiKey, onSaveKey }: LandingP
             {!apiKey ? (
               <form onSubmit={handleSubmit} className="flex flex-col gap-6">
                 <div className="relative flex items-center">
-                  <Key className="w-4 h-4 text-accent absolute left-0" strokeWidth={1.5} />
-                  <input 
-                    type="text" 
+                  <Key
+                    className="w-4 h-4 text-accent absolute left-0"
+                    strokeWidth={1.5}
+                  />
+                  <input
+                    type="text"
                     value={keyInput}
                     onChange={(e) => setKeyInput(e.target.value)}
-                    placeholder="Enter your Google Maps API key" 
+                    placeholder="Enter your Google Maps API key"
                     className="minimal-input w-full pl-8 py-3 text-[15px] font-medium text-foreground placeholder:font-normal placeholder:text-muted"
                     required
                   />
@@ -146,7 +178,10 @@ export default function LandingPage({ onStartGame, apiKey, onSaveKey }: LandingP
                   <span className="relative z-10">Initialize Tracker</span>
                 </button>
                 <div className="text-[11px] text-muted font-light mt-2 space-y-2 text-center">
-                  <p>A personal key is required for map and street view streaming.</p>
+                  <p>
+                    A personal key is required for map and street view
+                    streaming.
+                  </p>
                   <p className="text-accent/80 text-[10px] uppercase tracking-wider font-semibold">
                     Enable: Maps JS API, Street View Static API, Geocoding API
                   </p>
@@ -156,15 +191,43 @@ export default function LandingPage({ onStartGame, apiKey, onSaveKey }: LandingP
               <div className="flex flex-col items-stretch gap-6 text-center space-y-2">
                 <div className="flex flex-col items-center gap-2 mb-2">
                   <div className="w-3 h-3 bg-green-600 rounded-full animate-pulse border border-green-800"></div>
-                  <span className="text-[11px] uppercase tracking-[0.2em] text-foreground font-bold">Uplink Established</span>
+                  <span className="text-[11px] uppercase tracking-[0.2em] text-foreground font-bold">
+                    Uplink Established
+                  </span>
                 </div>
-                
+
                 <div className="space-y-3 pb-2 text-left">
-                  <label className="text-[10px] uppercase tracking-widest text-muted block text-center">Select Protocol</label>
+                  <label className="text-[10px] uppercase tracking-widest text-muted block text-center">
+                    Select Protocol
+                  </label>
                   <div className="grid grid-cols-3 gap-2">
-                     <button onClick={() => { sounds.click(); setDifficulty('easy');}} className={`py-2 text-[11px] border uppercase tracking-wider font-mono transition-colors ${difficulty === 'easy' ? 'border-accent bg-accent/10 text-accent' : 'border-border text-muted hover:border-foreground hover:text-foreground'}`}>Novice</button>
-                     <button onClick={() => { sounds.click(); setDifficulty('medium');}} className={`py-2 text-[11px] border uppercase tracking-wider font-mono transition-colors ${difficulty === 'medium' ? 'border-accent bg-accent/10 text-accent' : 'border-border text-muted hover:border-foreground hover:text-foreground'}`}>Explorer</button>
-                     <button onClick={() => { sounds.click(); setDifficulty('hard');}} className={`py-2 text-[11px] border uppercase tracking-wider font-mono transition-colors ${difficulty === 'hard' ? 'border-accent bg-accent/10 text-accent' : 'border-border text-muted hover:border-foreground hover:text-foreground'}`}>Cartographer</button>
+                    <button
+                      onClick={() => {
+                        sounds.click();
+                        setDifficulty("easy");
+                      }}
+                      className={`py-2 text-[11px] border uppercase tracking-wider font-mono transition-colors ${difficulty === "easy" ? "border-accent bg-accent/10 text-accent" : "border-border text-muted hover:border-foreground hover:text-foreground"}`}
+                    >
+                      Novice
+                    </button>
+                    <button
+                      onClick={() => {
+                        sounds.click();
+                        setDifficulty("medium");
+                      }}
+                      className={`py-2 text-[11px] border uppercase tracking-wider font-mono transition-colors ${difficulty === "medium" ? "border-accent bg-accent/10 text-accent" : "border-border text-muted hover:border-foreground hover:text-foreground"}`}
+                    >
+                      Explorer
+                    </button>
+                    <button
+                      onClick={() => {
+                        sounds.click();
+                        setDifficulty("hard");
+                      }}
+                      className={`py-2 text-[11px] border uppercase tracking-wider font-mono transition-colors ${difficulty === "hard" ? "border-accent bg-accent/10 text-accent" : "border-border text-muted hover:border-foreground hover:text-foreground"}`}
+                    >
+                      Cartographer
+                    </button>
                   </div>
                 </div>
 
@@ -179,7 +242,6 @@ export default function LandingPage({ onStartGame, apiKey, onSaveKey }: LandingP
           </div>
         </motion.div>
       </div>
-
     </main>
   );
 }
