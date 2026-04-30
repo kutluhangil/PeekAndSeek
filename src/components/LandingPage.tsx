@@ -62,7 +62,12 @@ export default function LandingPage({ onStartGame, apiKey, onSaveKey }: LandingP
                </button>
                <div className="text-[11px] text-muted font-light mt-2 max-w-sm space-y-1">
                  <p>required to render the map interface.</p>
-                 <p className="text-red-900/80 dark:text-red-400"><strong>Note:</strong> If you see an <em>ApiNotActivatedMapError</em>, you must go to Google Cloud Console, select your project, and explicitly enable the <strong>Maps JavaScript API</strong>.</p>
+                 <p className="text-red-900/80">
+                   <strong>Note:</strong> to avoid errors, please ensure you have enabled the following APIs in Google Cloud Console:
+                   <br/>- Maps JavaScript API
+                   <br/>- Street View Static API
+                   <br/>- Geocoding API
+                 </p>
                </div>
             </form>
           ) : (

@@ -30,7 +30,12 @@ async function startServer() {
       const url = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${lat},${lng}&key=${key}`;
       const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.statusText}`);
+        const text = await response.text();
+        console.error(`Streetview API Error (${response.status}):`, text);
+        if (response.status === 403) {
+            return res.status(403).json({ error: 'Street View Static API is not enabled for this API key.' });
+        }
+        return res.status(response.status).json({ error: `Failed to fetch image: ${response.statusText}` });
       }
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
