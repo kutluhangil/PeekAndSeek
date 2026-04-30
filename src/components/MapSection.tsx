@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { APIProvider, Map as GoogleMap, AdvancedMarker, Pin, useMapsLibrary, useMap } from '@vis.gl/react-google-maps';
-import { MapPin, Target, ChevronLeft, Navigation, X, Camera, Eye, Map as MapIcon, Share2, RotateCcw, Info, Compass, Plus, Minus, Flag } from 'lucide-react';
+import { MapPin, Target, ChevronLeft, Navigation, X, Camera, Eye, Map as MapIcon, Share2, RotateCcw, Info, Compass, Plus, Minus, Flag, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { sounds } from '../lib/sounds';
 
 const STORAGE_KEY = 'geoseeker_game_state';
 
@@ -29,6 +30,24 @@ const cartographyMapStyles = [
   { featureType: "transit", stylers: [{ visibility: "off" }] },
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#e5e9ea" }] },
   { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#a8a29e" }] },
+];
+
+const cartographyNightMapStyles = [
+  { elementType: "geometry", stylers: [{ color: "#1c1917" }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#a8a29e" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#1c1917" }] },
+  { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#44403c" }, { weight: 1 }] },
+  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#292524" }] },
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#000000" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#292524" }] },
+  { featureType: "road.arterial", elementType: "labels.text.fill", stylers: [{ color: "#78716c" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#292524" }] },
+  { featureType: "road.local", elementType: "labels.text.fill", stylers: [{ color: "#44403c" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#000000" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#44403c" }] },
 ];
 
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -88,13 +107,13 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
       if (savedState && savedState.hiddenLocation.lat === hl.lat && savedState.hiddenLocation.lng === hl.lng) {
         return { ...savedState, isRestored: true };
       }
-      return { hiddenLocation: hl, guessesCount: 0, gameOver: false, revealed: false, previousDistance: null, waypoints: [], isRestored: false };
+      return { hiddenLocation: hl, guessesCount: 0, gameOver: false, revealed: false, previousDistance: null, waypoints: [], startTime: Date.now(), isRestored: false };
     } else if (savedState) {
       return { ...savedState, isRestored: true };
     } else {
       return {
         hiddenLocation: { lat: 48.8584 + (Math.random() - 0.5) * 0.04, lng: 2.2945 + (Math.random() - 0.5) * 0.04 },
-        guessesCount: 0, gameOver: false, revealed: false, previousDistance: null, waypoints: [], isRestored: false
+        guessesCount: 0, gameOver: false, revealed: false, previousDistance: null, waypoints: [], startTime: Date.now(), isRestored: false
       };
     }
   });
@@ -105,7 +124,33 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
   const [gameOver, setGameOver] = useState(gameState.gameOver);
   const [revealed, setRevealed] = useState(gameState.revealed);
   const [waypoints, setWaypoints] = useState<Array<{lat: number, lng: number, id: string}>>(gameState.waypoints || []);
+  const [startTime, setStartTime] = useState(gameState.startTime || Date.now());
+  const [elapsedTime, setElapsedTime] = useState(0);
   const [isRestored, setIsRestored] = useState(gameState.isRestored);
+
+  const difficulty = new URLSearchParams(window.location.search).get('difficulty') || 'medium';
+  const winThreshold = difficulty === 'hard' ? 0.05 : difficulty === 'easy' ? 0.5 : 0.1;
+  const hideStreetView = difficulty === 'hard';
+  const hideDirection = difficulty === 'hard';
+  
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
+
+  useEffect(() => {
+    setIsDarkTheme(document.documentElement.classList.contains('dark'));
+    const observer = new MutationObserver(() => {
+      setIsDarkTheme(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (gameOver) return;
+    const interval = setInterval(() => {
+      setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [startTime, gameOver]);
 
   const [feedback, setFeedback] = useState<string | null>(null);
   const [streetviewImage, setStreetviewImage] = useState<string | null>(null);
@@ -130,16 +175,18 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        hiddenLocation, guessesCount, gameOver, revealed, previousDistance, waypoints
+        hiddenLocation, guessesCount, gameOver, revealed, previousDistance, waypoints, startTime
     }));
-  }, [hiddenLocation, guessesCount, gameOver, revealed, previousDistance, waypoints]);
+  }, [hiddenLocation, guessesCount, gameOver, revealed, previousDistance, waypoints, startTime]);
 
   const dismissTutorial = () => {
+    sounds.click();
     localStorage.setItem('geoseeker_tutorial_seen', 'true');
     setShowTutorial(false);
   };
 
   const handleReset = () => {
+    sounds.click();
     setHiddenLocation({
       lat: 48.8584 + (Math.random() - 0.5) * 0.04, 
       lng: 2.2945 + (Math.random() - 0.5) * 0.04 
@@ -147,6 +194,8 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
     setGuessesCount(0);
     setPreviousDistance(null);
     setWaypoints([]);
+    setStartTime(Date.now());
+    setElapsedTime(0);
     setFeedback("Game reset. New coordinates established.");
     setTimeout(() => setFeedback(null), 3000);
     setGameOver(false);
@@ -213,18 +262,19 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
   const distance = getDistance(center.lat, center.lng, hiddenLocation.lat, hiddenLocation.lng);
   const direction = getDirection(center.lat, center.lng, hiddenLocation.lat, hiddenLocation.lng);
   
-  let clue = `Head ${direction}`;
+  let clue = hideDirection ? "Directional sensors disabled due to protocol." : `Head ${direction}`;
   if (landmark) {
-      clue += ` towards ${landmark}`;
+      clue += ` towards area of ${landmark}`;
   }
-  clue += `. Approximately ${distance.toFixed(1)} km away.`;
+  clue += hideDirection ? ` Radius anomaly: ${distance.toFixed(1)} km.` : `. Approximately ${distance.toFixed(1)} km away.`;
 
-  if (distance < 0.1) {
+  if (distance < winThreshold) {
       clue = "You're extremely close! Target is right here.";
   }
 
   const handleGuess = () => {
       if (gameOver) return;
+      sounds.guess();
 
       setIsPulsing(true);
       setTimeout(() => setIsPulsing(false), 500);
@@ -234,11 +284,13 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
       
       let newFeedback = "";
 
-      if (distance < 0.1) {
-          newFeedback = "You found Gemini!";
+      if (distance < winThreshold) {
+          sounds.success();
+          newFeedback = "You found the target!";
           setGameOver(true);
           setRevealed(true);
       } else if (newCount >= 10) {
+          sounds.fail();
           newFeedback = "Game Over! You ran out of guesses.";
           setGameOver(true);
           setRevealed(true);
@@ -324,7 +376,10 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
               <div>
                 <h2 className="text-[10px] uppercase tracking-[0.25em] text-muted mb-4 border-b border-border pb-2 flex justify-between items-center">
                   <span className="flex items-center gap-2"><MapPin className="w-3 h-3" /> Fix</span>
-                  <span className="font-mono">{guessesCount} / 10 Attempts</span>
+                  <div className="flex gap-4">
+                     <span className="font-mono flex items-center shadow-inner gap-1"><Clock className="w-3 h-3" /> {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}</span>
+                     <span className="font-mono">{guessesCount} / 10 attempts</span>
+                  </div>
                 </h2>
                 <div className="bg-muted-bg/50 p-4 border border-border border-dashed font-mono text-sm tracking-tight text-foreground/80 flex flex-col gap-1">
                   <span>LAT: {center.lat.toFixed(5)}</span>
@@ -343,7 +398,12 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
                   <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-foreground/50 m-1 z-10" />
                   
                   <div className="w-full h-full relative overflow-hidden bg-background">
-                    {streetviewError ? (
+                    {hideStreetView ? (
+                      <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+                        <span className="text-[10px] uppercase tracking-widest text-accent font-medium mb-2">Feed Disabled</span>
+                        <p className="text-[10px] text-muted font-mono">Cartographic mode active. No remote visuals.</p>
+                      </div>
+                    ) : streetviewError ? (
                       <div className="flex flex-col items-center justify-center h-full p-4 text-center">
                         <span className="text-[10px] uppercase tracking-widest text-accent font-medium mb-2">Feed Lost</span>
                         <p className="text-[10px] text-muted font-mono">{streetviewError}</p>
@@ -388,20 +448,20 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
                </button>
 
                <div className="grid grid-cols-2 gap-2">
-                 <button 
-                   onClick={() => setIsWaypointMode(!isWaypointMode)}
+                  <button 
+                   onClick={() => { sounds.click(); setIsWaypointMode(!isWaypointMode); }}
                    className={`w-full bg-transparent border border-border font-mono text-[10px] uppercase py-2.5 transition-colors flex items-center justify-center gap-1.5 ${isWaypointMode ? 'bg-muted-bg text-accent' : 'text-foreground hover:bg-muted-bg'}`}
                  >
                    <Flag className="w-3 h-3" /> {isWaypointMode ? 'Cancel Waypoint' : 'Place Waypoint'}
                  </button>
                  <button 
-                   onClick={handleReset}
+                   onClick={() => { sounds.click(); handleReset(); }}
                    className="w-full bg-transparent border border-border text-foreground font-mono text-[10px] uppercase py-2.5 hover:bg-muted-bg transition-colors flex items-center justify-center gap-1.5"
                  >
                    <RotateCcw className="w-3 h-3" /> Reset
                  </button>
                  <button 
-                   onClick={() => { setRevealed(true); setGameOver(true); setFeedback("Signal Traced."); }}
+                   onClick={() => { sounds.fail(); setRevealed(true); setGameOver(true); setFeedback("Signal Traced. Game Over."); }}
                    disabled={revealed}
                    className="w-full bg-transparent border border-border text-foreground font-mono text-[10px] uppercase py-2.5 hover:bg-muted-bg transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                  >
@@ -409,6 +469,7 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
                  </button>
                  <button 
                    onClick={() => {
+                     sounds.click();
                      const url = new URL(window.location.href);
                      url.searchParams.set('targetLat', hiddenLocation.lat.toFixed(5));
                      url.searchParams.set('targetLng', hiddenLocation.lng.toFixed(5));
@@ -460,10 +521,11 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
           defaultCenter={center}
           mapId={MAP_ID}
           disableDefaultUI={true}
-          styles={cartographyMapStyles}
+          styles={isDarkTheme ? cartographyNightMapStyles : cartographyMapStyles}
           options={{ draggableCursor: isWaypointMode ? 'crosshair' : undefined }}
           onClick={(e) => {
               if (isWaypointMode && e.detail.latLng) {
+                  sounds.click();
                   setWaypoints([...waypoints, { lat: e.detail.latLng.lat, lng: e.detail.latLng.lng, id: Date.now().toString() }]);
                   setIsWaypointMode(false);
               }

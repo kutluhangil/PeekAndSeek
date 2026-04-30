@@ -20,6 +20,20 @@
     --accent: #b91c1c;
     --accent-hover: #991b1b;
   }
+
+  .dark {
+    --background: #1c1917;
+    --foreground: #e7e5e4;
+    
+    --card: #292524;
+    --card-foreground: #e7e5e4;
+    
+    --border: #44403c;
+    --muted: #a8a29e;
+    --muted-bg: #44403c;
+    --accent: #dc2626;
+    --accent-hover: #b91c1c;
+  }
 }
 
 body {

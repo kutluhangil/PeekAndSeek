@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Key, Compass, MapPin } from 'lucide-react';
+import { Key, Compass, MapPin, Moon, Sun, Volume2 } from 'lucide-react';
+import { sounds } from '../lib/sounds';
 
 interface LandingPageProps {
   onStartGame: () => void;
@@ -35,21 +36,58 @@ const CornerBracket = ({ className }: { className?: string }) => (
 
 export default function LandingPage({ onStartGame, apiKey, onSaveKey }: LandingPageProps) {
   const [keyInput, setKeyInput] = useState('');
+  const [difficulty, setDifficulty] = useState('medium');
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    if (localStorage.getItem('theme') === 'dark') {
+      setIsDark(true);
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    sounds.click();
+    if (isDark) {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+      setIsDark(false);
+    } else {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+      setIsDark(true);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (keyInput.trim()) {
+      sounds.click();
       onSaveKey(keyInput.trim());
     }
+  };
+
+  const handleStart = () => {
+    sounds.click();
+    const url = new URL(window.location.href);
+    url.searchParams.set('difficulty', difficulty);
+    window.history.replaceState({}, '', url);
+    onStartGame();
   };
 
   return (
     <main className="relative flex-1 flex items-center justify-center min-h-[100dvh] bg-background overflow-hidden cartography-grid">
       
+      <div className="absolute top-6 right-6 z-20 flex items-center gap-4">
+        <button onClick={toggleTheme} className="p-2 border border-border bg-card rounded-full text-foreground hover:bg-muted-bg transition-colors shadow-sm">
+          {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
+      </div>
+
       <img 
         src="https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg" 
         alt="World Map Silhouette" 
-        className="absolute w-[300%] md:w-[150%] max-w-none lg:w-[120%] lg:max-w-none h-auto opacity-[0.06] pointer-events-none top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply"
+        className={`absolute w-[300%] md:w-[150%] max-w-none lg:w-[120%] lg:max-w-none h-auto pointer-events-none top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mix-blend-multiply ${isDark ? 'opacity-[0.03] invert' : 'opacity-[0.06]'}`}
       />
       
       <TopoContour />
@@ -115,13 +153,23 @@ export default function LandingPage({ onStartGame, apiKey, onSaveKey }: LandingP
                 </div>
               </form>
             ) : (
-              <div className="flex flex-col items-center gap-8 text-center space-y-4">
-                <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-stretch gap-6 text-center space-y-2">
+                <div className="flex flex-col items-center gap-2 mb-2">
                   <div className="w-3 h-3 bg-green-600 rounded-full animate-pulse border border-green-800"></div>
                   <span className="text-[11px] uppercase tracking-[0.2em] text-foreground font-bold">Uplink Established</span>
                 </div>
+                
+                <div className="space-y-3 pb-2 text-left">
+                  <label className="text-[10px] uppercase tracking-widest text-muted block text-center">Select Protocol</label>
+                  <div className="grid grid-cols-3 gap-2">
+                     <button onClick={() => { sounds.click(); setDifficulty('easy');}} className={`py-2 text-[11px] border uppercase tracking-wider font-mono transition-colors ${difficulty === 'easy' ? 'border-accent bg-accent/10 text-accent' : 'border-border text-muted hover:border-foreground hover:text-foreground'}`}>Novice</button>
+                     <button onClick={() => { sounds.click(); setDifficulty('medium');}} className={`py-2 text-[11px] border uppercase tracking-wider font-mono transition-colors ${difficulty === 'medium' ? 'border-accent bg-accent/10 text-accent' : 'border-border text-muted hover:border-foreground hover:text-foreground'}`}>Explorer</button>
+                     <button onClick={() => { sounds.click(); setDifficulty('hard');}} className={`py-2 text-[11px] border uppercase tracking-wider font-mono transition-colors ${difficulty === 'hard' ? 'border-accent bg-accent/10 text-accent' : 'border-border text-muted hover:border-foreground hover:text-foreground'}`}>Cartographer</button>
+                  </div>
+                </div>
+
                 <button
-                  onClick={onStartGame}
+                  onClick={handleStart}
                   className="w-full border-2 border-accent bg-accent text-white py-4 text-[14px] uppercase tracking-[0.2em] font-bold hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20"
                 >
                   Commence Search
