@@ -55,6 +55,11 @@ flowchart LR
 
 If the map shows `AuthFailure` or `ApiNotActivatedMapError`, the key is present but the Google Cloud project is not fully configured yet.
 
+**See detailed setup guides:**
+
+- [Turkish Setup Guide](docs/GOOGLE_CLOUD_SETUP_TR.md) - Detailed step-by-step in Turkish
+- [Gemini Assist Prompt](docs/GOOGLE_CLOUD_SETUP_PROMPT.md) - Copy this to Google Cloud's Gemini Assist for AI-guided setup
+
 - Enable `Maps JavaScript API` in the Google Cloud project.
 - Enable `Street View Static API` and `Geocoding API` for the visual feed and clue generation.
 - Make sure billing is active on the project.
