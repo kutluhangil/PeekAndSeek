@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { APIProvider, Map as GoogleMap, AdvancedMarker, Pin, useMapsLibrary, useMap } from '@vis.gl/react-google-maps';
 import { MapPin, Target, ChevronLeft, Navigation, X, Camera, Eye, Map as MapIcon, Share2, RotateCcw, Info, Compass, Plus, Minus, Flag, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -81,6 +81,7 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
   const map = useMap();
   const [center, setCenter] = useState({ lat: 48.8584, lng: 2.2945 });
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const streetviewRequestId = useRef(0);
 
   // libs
   const geocodingLib = useMapsLibrary('geocoding');
@@ -238,11 +239,13 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
 
   // Debounce streetview fetches
   useEffect(() => {
+    const requestId = ++streetviewRequestId.current;
     const timer = setTimeout(() => {
       setStreetviewImage(null);
       setStreetviewError(null);
       fetch(`/api/streetview?lat=${center.lat}&lng=${center.lng}&key=${apiKey}`)
         .then(async res => {
+           if (requestId !== streetviewRequestId.current) return;
            const data = await res.json();
            if (!res.ok) {
               throw new Error(data.error || 'Failed to fetch streetview');
@@ -252,11 +255,15 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
            }
         })
         .catch(err => {
+           if (requestId !== streetviewRequestId.current) return;
            console.error(err);
            setStreetviewError(err.message);
         });
     }, 1000);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      streetviewRequestId.current += 1;
+    };
   }, [center.lat, center.lng, apiKey]);
 
   const distance = getDistance(center.lat, center.lng, hiddenLocation.lat, hiddenLocation.lng);
@@ -579,6 +586,26 @@ function MapContent({ onBack, apiKey }: MapSectionProps) {
 }
 
 export default function MapSection(props: MapSectionProps) {
+  if (!props.apiKey) {
+    return (
+      <div className="min-h-[100dvh] bg-background flex items-center justify-center p-6">
+        <div className="w-full max-w-md bg-card border border-border shadow-2xl p-8 text-center space-y-5">
+          <p className="text-[10px] uppercase tracking-[0.25em] text-muted">Missing API Key</p>
+          <h1 className="text-3xl font-serif italic text-foreground">Map session unavailable</h1>
+          <p className="text-sm text-muted leading-relaxed">
+            A Google Maps API key is required before the map view can initialize. Return to the landing screen and add a valid key to continue.
+          </p>
+          <button
+            onClick={props.onBack}
+            className="w-full border-2 border-accent bg-accent text-white py-3 text-[12px] uppercase tracking-[0.2em] font-bold hover:bg-accent-hover transition-colors"
+          >
+            Back to Setup
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <APIProvider apiKey={props.apiKey}>
        <MapContent {...props} />

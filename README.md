@@ -1,44 +1,101 @@
-# GeoSeeker
+# Peek & Seek
 
-A next-generation interactive map experience built with modern web technologies. GeoSeeker provides a premium, responsive, and immersive interface for exploring global locations. 
+Peek & Seek is a premium hide-and-seek game built around Google Maps, Street View, and directional clueing. The player starts from a styled landing screen, enters a Google Maps API key, chooses a difficulty, and then tries to locate a hidden coordinate on the map within a limited number of guesses.
 
-The application has been completely reimagined to deliver desktop-class aesthetics, fluid animations, and a polished user experience.
+## What The App Does
 
-## Features
+- Presents a cinematic landing screen with theme switching and difficulty selection.
+- Loads an interactive Google Map with custom cartography-inspired styling.
+- Requests Street View imagery from a lightweight Express proxy route.
+- Gives distance and direction feedback after every guess.
+- Persists game state and the player’s API key in localStorage.
+- Supports sharing a hidden target through URL parameters.
 
-- **Apple-grade Design:** Carefully crafted components with a focus on dark mode, typography (Inter & JetBrains Mono), and glassmorphic overlays.
-- **Fluid Animations:** Powered by Motion for seamless transitions, micro-interactions, and a dynamic hero section.
-- **Advanced Map Integration:** Custom dark/light map rendering using the latest visual styles with `@vis.gl/react-google-maps`.
-- **Responsive Architecture:** Native-feeling experience across mobile, tablet, and desktop viewports.
-- **Adaptive UI:** A contextual sidebar designed to house geospatial data, AI integration points, and high-fidelity mock interfaces.
+## Gameplay Loop
 
-## Technology Stack
+1. Enter a valid Google Maps API key.
+2. Pick a difficulty level.
+3. Pan the map to move the active probe.
+4. Read the clue, review the Street View feed, and place waypoints if needed.
+5. Plot coordinates to submit a guess.
+6. Find the target before running out of attempts.
+
+## Tech Stack
 
 - React 19
 - Vite
+- TypeScript
 - Tailwind CSS 4
-- Motion (Framer Motion)
-- Lucide Icons
+- Motion
+- Lucide React
 - @vis.gl/react-google-maps
+- Express for the local Street View proxy
 
-## Development
+## Requirements
 
-Clone the repository, install dependencies, configure your environment variables, and start the development server:
+- Node.js 18 or newer
+- A Google Maps API key with the required Maps and Street View services enabled
+
+## Setup
 
 ```bash
 npm install
-npm run dev
 ```
 
-Ensure your `.env` contains the required map credentials:
+Create a local `.env` file:
 
 ```bash
 VITE_GOOGLE_MAPS_API_KEY=your_api_key_here
 ```
 
-## Structure
+Start the app in development mode:
 
-- `src/components/LandingPage.tsx`: The immersive entry point for the application.
-- `src/components/MapSection.tsx`: The core spatial interaction interface.
-- `src/components/ThemeProvider.tsx`: A robust context for managing application-wide themes.
-- `src/index.css`: Tailwind configuration and custom utility classes enforcing the overarching design system.
+```bash
+npm run dev
+```
+
+Build for production:
+
+```bash
+npm run build
+```
+
+Preview a production build locally:
+
+```bash
+npm run preview
+```
+
+## Scripts
+
+- `npm run dev` starts the Express + Vite development server on port `3000`.
+- `npm run build` generates the production bundle.
+- `npm run preview` serves the built app locally.
+- `npm run lint` runs the TypeScript compiler with `--noEmit`.
+- `npm run clean` removes the `dist` folder.
+
+## Environment Variables
+
+- `VITE_GOOGLE_MAPS_API_KEY`: Used by the client-side Google Maps integration.
+- `GEMINI_API_KEY`: Defined in `vite.config.ts` for compatibility with AI-oriented tooling, but not currently used by the gameplay loop.
+
+## Project Structure
+
+- `src/App.tsx`: Top-level view switch between the landing page and the map game.
+- `src/components/LandingPage.tsx`: Landing screen, key entry, and difficulty selection.
+- `src/components/MapSection.tsx`: Core game board, sidebar, timers, clues, and guesses.
+- `src/components/Footer.tsx`: Attribution and social links.
+- `src/lib/sounds.ts`: Small Web Audio sound effects for click, success, and failure feedback.
+- `src/lib/utils.ts`: Shared utility helpers.
+- `server.ts`: Development server plus `/api/streetview` proxy endpoint.
+- `src/index.css`: Global theme tokens and utility classes.
+
+## Notes
+
+- Game progress is persisted in localStorage so the session can survive reloads.
+- The Street View proxy keeps the browser code simple and avoids directly handling image responses in the client.
+- If the map is opened without a valid key, the app now shows a dedicated fallback screen instead of failing silently.
+
+## License
+
+This repository includes Apache-2.0 license headers in source files.
