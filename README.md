@@ -8,7 +8,7 @@ Peek & Seek is a premium hide-and-seek game built around Google Maps, Street Vie
 - Loads an interactive Google Map with custom cartography-inspired styling.
 - Requests Street View imagery from a lightweight Express proxy route.
 - Gives distance and direction feedback after every guess.
-- Persists game state and the player’s API key in localStorage.
+- Persists game state and the player's API key in localStorage.
 - Supports sharing a hidden target through URL parameters.
 
 ## Gameplay Loop
@@ -19,6 +19,23 @@ Peek & Seek is a premium hide-and-seek game built around Google Maps, Street Vie
 4. Read the clue, review the Street View feed, and place waypoints if needed.
 5. Plot coordinates to submit a guess.
 6. Find the target before running out of attempts.
+
+## Usage Screenshot
+
+![Peek and Seek UI preview](docs/usage-preview.svg)
+
+This preview is a stylized placeholder. Replace it with a real capture when you have one.
+
+## Architecture Diagram
+
+```mermaid
+flowchart LR
+	Browser[Player Browser] -->|Vite dev server| ReactApp[React App]
+	ReactApp -->|Maps JS API| Maps[Google Maps JS API]
+	ReactApp -->|/api/streetview| Proxy[Express proxy]
+	Proxy -->|Street View Static API| StreetView[Google Street View API]
+	ReactApp -->|state| Storage[(localStorage)]
+```
 
 ## Tech Stack
 
