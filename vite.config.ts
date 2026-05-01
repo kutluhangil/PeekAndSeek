@@ -9,7 +9,7 @@ import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
 
 export default defineConfig(({mode}) => {
-  const env = loadEnv(mode, '.', '');
+  const env = loadEnv(mode, '.', 'VITE_');
   return {
     plugins: [react(), tailwindcss()],
     define: {
@@ -24,6 +24,9 @@ export default defineConfig(({mode}) => {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: false,
-    },
-  };
+    },    build: {
+      outDir: 'dist',
+      sourcemap: false,
+      minify: 'esbuild',
+    },  };
 });

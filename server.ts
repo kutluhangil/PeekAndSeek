@@ -14,7 +14,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 async function startServer() {
   const app = express();
   const httpServer = createServer(app);
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   // API routes
   app.get("/api/health", (req, res) => {
@@ -55,13 +55,20 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    // Production static serving (if needed later)
+    // Production static serving
     app.use(express.static(path.join(__dirname, "dist")));
+    // SPA fallback: route all unmatched requests to index.html
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(__dirname, "dist", "index.html"));
+    });
   }
 
   httpServer.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT} (Node env: ${process.env.NODE_ENV || "development"})`);
   });
 }
 
-startServer();
+startServer().catch((error) => {
+  console.error("Failed to start server:", error);
+  process.exit(1);
+});
