@@ -1,479 +1,595 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   APIProvider,
   Map as GoogleMap,
   AdvancedMarker,
   Pin,
   useMap,
+  useMapsLibrary,
 } from "@vis.gl/react-google-maps";
 import {
-  MapPin,
-  Target,
-  ChevronLeft,
-  Navigation,
-  X,
-  Camera,
-  Eye,
-  Map as MapIcon,
-  Share2,
-  RotateCcw,
-  Compass,
-  Plus,
-  Minus,
-  Flag,
-  Clock,
-  Maximize2,
+  MapPin, Target, ChevronLeft, Navigation, X, Camera, Eye,
+  Map as MapIcon, Share2, RotateCcw, Compass, Plus, Minus,
+  Flag, Clock, Maximize2, Lightbulb, Trophy, ChevronRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { getStoredItem, setStoredItem } from "../lib/storage";
+import { generateLocation } from "../lib/regions";
+import { calculateScore, scoreColorClass, scoreGrade } from "../lib/scoring";
+import { getLeaderboard, saveToLeaderboard } from "../lib/leaderboard";
 import type { Lang } from "../App";
+import type { Region } from "../lib/regions";
 
-const STORAGE_KEY = "geoseeker_game_state";
+const STORAGE_KEY = "geoseeker_game_state_v3";
+const TOTAL_ROUNDS = 5;
+const MAP_ID = "DEMO_MAP_ID";
 
 interface MapSectionProps {
   onBack: () => void;
   apiKey: string;
   lang: Lang;
+  region: Region;
 }
 
-const MAP_ID = "DEMO_MAP_ID";
+interface RoundResult { round: number; score: number; distanceKm: number; guessesUsed: number; }
 
+// ─── Translations ──────────────────────────────────────────────────────────────
 const T = {
   en: {
-    abort: "Abort",
-    intelReport: "Intel Report",
-    fix: "Fix",
-    visualFeed: "Visual Feed",
-    feedDisabled: "Feed Disabled",
+    abort: "Abort", intelReport: "Intel Report", fix: "Fix",
+    visualFeed: "Visual Feed", feedDisabled: "Feed Disabled",
     feedDisabledDesc: "Cartographic mode active. No remote visuals.",
-    feedLost: "Feed Lost",
-    plotCoordinates: "Plot Coordinates",
-    placeWaypoint: "Place Waypoint",
-    cancelWaypoint: "Cancel Waypoint",
-    reset: "Reset",
-    trace: "Trace",
-    dispatchLink: "Dispatch Link",
-    clickToEnlarge: "Click image to enlarge",
-    attempts: "/ 10 attempts",
-    gameRestoredMsg: "Game session restored.",
-    gameResetMsg: "Game reset. New coordinates established.",
-    signalTracedMsg: "Signal Traced. Game Over.",
-    linkCopiedMsg: "Intel Link Copied",
-    copyFromPromptMsg: "Copy the link from the prompt",
-    acknowledgeTutorial: "Acknowledge",
+    feedLost: "Feed Lost — no coverage here.",
+    plotCoordinates: "Plot Coordinates", placeWaypoint: "Place Waypoint",
+    cancelWaypoint: "Cancel Waypoint", reset: "Reset", trace: "Trace",
+    dispatchLink: "Share", clickToEnlarge: "Click to enlarge",
+    attempts: "/ 10 tries", gameRestoredMsg: "Session restored.",
+    gameResetMsg: "Game reset.", signalTracedMsg: "Signal Traced. Round Over.",
+    linkCopiedMsg: "Link Copied!", acknowledgeTutorial: "Let's go",
     tutorialTitle: "Cartographer's Manual",
-    tutorialBody:
-      "A street-level photo of the hidden target is shown in the Visual Feed. Study it carefully, then pan the map to where you think it was taken and hit Plot Coordinates. You have exactly 10 guesses.",
-    initialClue:
-      "Study the visual feed. Pan the map to your best guess and plot coordinates.",
-    veryClose: "You're extremely close! Target is right here.",
-    directionalDisabled: (dist: string) =>
-      `Directional sensors disabled. Radius anomaly: ${dist} km.`,
-    headDir: (dir: string, dist: string, landmark: string | null) =>
-      landmark
-        ? `Head ${dir} towards area of ${landmark}. Approximately ${dist} km away.`
-        : `Head ${dir}. Approximately ${dist} km away.`,
-    firstGuessMsg: "First guess plotted. Scan again.",
-    significantProgressMsg: "Excellent! You made significant progress.",
-    gettingWarmerMsg: "You are getting warmer.",
-    circlingMsg: "You are circling the target.",
-    movingAwayMsg: "You are moving away. Turn back.",
-    wrongDirectionMsg: "You are heading in the wrong direction!",
-    foundTargetMsg: "You found the target!",
-    gameOverMsg: "Game Over! You ran out of guesses.",
+    tutorialBody: "A street-level photo of the hidden target appears in the Visual Feed. Study it, pan the map to where you think it was taken, and hit Plot Coordinates. 5 rounds — up to 5,000 pts each.",
+    initialClue: "Study the visual feed. Pan to your best guess and plot coordinates.",
+    veryClose: "You're on top of it! Target confirmed.",
+    directionalDisabled: (d: string) => `Sensors disabled. Radius: ${d} km.`,
+    headDir: (dir: string, d: string, lm: string | null) =>
+      lm ? `Head ${dir} towards ${lm}. ~${d} km.` : `Head ${dir}. ~${d} km.`,
+    firstGuessMsg: "First guess logged. Refine your position.",
+    significantProgressMsg: "Excellent — major progress!",
+    gettingWarmerMsg: "Getting warmer.",
+    circlingMsg: "Circling the target.",
+    movingAwayMsg: "Moving away. Reverse course.",
+    wrongDirectionMsg: "Wrong direction!",
+    foundTargetMsg: "Target found!",
+    gameOverMsg: "Out of guesses.",
     remove: "Remove",
-    north: "North",
-    south: "South",
-    east: "East",
-    west: "West",
+    north: "North", south: "South", east: "East", west: "West",
+    hintBtn: "Country Hint (−1 guess)",
+    hintUsed: "Hint used",
+    countryPrefix: "Country:",
+    roundLabel: (r: number) => `Round ${r} of ${TOTAL_ROUNDS}`,
+    roundResult: "Round Complete",
+    nextRound: "Next Round →",
+    finalResult: "Mission Debrief",
+    totalScore: "Total Score",
+    maxScore: `${TOTAL_ROUNDS * 5000} pts max`,
+    playAgain: "Play Again",
+    backToMenu: "Main Menu",
+    distance: "Distance",
+    guesses: "Guesses",
+    pts: "pts",
+    leaderboard: "Top Scores",
+    noScores: "No scores yet.",
+    grade: "Grade",
   },
   tr: {
-    abort: "Geri",
-    intelReport: "İstihbarat",
-    fix: "Konum",
-    visualFeed: "Görsel Akış",
-    feedDisabled: "Akış Kapalı",
+    abort: "Geri", intelReport: "İstihbarat", fix: "Konum",
+    visualFeed: "Görsel Akış", feedDisabled: "Akış Kapalı",
     feedDisabledDesc: "Kartografik mod aktif. Uzak görsel yok.",
-    feedLost: "Akış Kesildi",
-    plotCoordinates: "Koordinat Gönder",
-    placeWaypoint: "Ara Nokta Ekle",
-    cancelWaypoint: "İptal",
-    reset: "Sıfırla",
-    trace: "Keşfet",
-    dispatchLink: "Link Kopyala",
-    clickToEnlarge: "Büyütmek için tıkla",
-    attempts: "/ 10 hamle",
-    gameRestoredMsg: "Oyun oturumu geri yüklendi.",
-    gameResetMsg: "Oyun sıfırlandı. Yeni koordinatlar belirlendi.",
-    signalTracedMsg: "Sinyal İzlendi. Oyun Bitti.",
-    linkCopiedMsg: "Bağlantı Kopyalandı",
-    copyFromPromptMsg: "Bağlantıyı iletişim kutusundan kopyalayın",
-    acknowledgeTutorial: "Anladım",
+    feedLost: "Akış Kesildi — burada kapsama yok.",
+    plotCoordinates: "Koordinat Gönder", placeWaypoint: "Ara Nokta Ekle",
+    cancelWaypoint: "İptal", reset: "Sıfırla", trace: "Keşfet",
+    dispatchLink: "Paylaş", clickToEnlarge: "Büyütmek için tıkla",
+    attempts: "/ 10 hamle", gameRestoredMsg: "Oturum geri yüklendi.",
+    gameResetMsg: "Oyun sıfırlandı.", signalTracedMsg: "Sinyal İzlendi. Tur Bitti.",
+    linkCopiedMsg: "Link Kopyalandı!", acknowledgeTutorial: "Hadi başlayalım",
     tutorialTitle: "Kartograf Rehberi",
-    tutorialBody:
-      "Görsel Akış'ta gizli hedefin sokak seviyesinden fotoğrafı gösterilir. Dikkatlice incele, ardından haritayı fotoğrafın çekildiğini düşündüğün yere kaydır ve Koordinat Gönder'e bas. Tam 10 hamlen var.",
-    initialClue:
-      "Görsel akışı incele. Haritayı tahmin ettiğin yere kaydır ve koordinat gönder.",
-    veryClose: "Çok yakındasın! Hedef tam burada.",
-    directionalDisabled: (dist: string) =>
-      `Yönsel sensörler devre dışı. Yarıçap anomalisi: ${dist} km.`,
-    headDir: (dir: string, dist: string, landmark: string | null) =>
-      landmark
-        ? `${dir}, ${landmark} bölgesine doğru. Yaklaşık ${dist} km uzaklıkta.`
-        : `${dir} yönünde. Yaklaşık ${dist} km uzaklıkta.`,
-    firstGuessMsg: "İlk tahmin gönderildi. Tekrar tara.",
-    significantProgressMsg: "Mükemmel! Önemli ilerleme kaydettiniz.",
-    gettingWarmerMsg: "Isınıyorsunuz.",
-    circlingMsg: "Hedefi çevreliyorsunuz.",
-    movingAwayMsg: "Uzaklaşıyorsunuz. Geri dönün.",
-    wrongDirectionMsg: "Yanlış yönde gidiyorsunuz!",
-    foundTargetMsg: "Hedefi buldunuz!",
-    gameOverMsg: "Oyun Bitti! Tüm hamleleriniz doldu.",
+    tutorialBody: "Görsel Akış'ta gizli hedefin sokak fotoğrafı görünür. İncele, haritayı fotoğrafın çekildiğini düşündüğün yere kaydır ve Koordinat Gönder'e bas. 5 tur — her tur için en fazla 5.000 puan.",
+    initialClue: "Görsel akışı incele. Haritayı tahmin ettiğin yere kaydır ve koordinat gönder.",
+    veryClose: "Tam üzerindesin! Hedef doğrulandı.",
+    directionalDisabled: (d: string) => `Sensörler devre dışı. Yarıçap: ${d} km.`,
+    headDir: (dir: string, d: string, lm: string | null) =>
+      lm ? `${dir} yönünde, ${lm} bölgesine. ~${d} km.` : `${dir} yönünde. ~${d} km.`,
+    firstGuessMsg: "İlk tahmin kaydedildi. Konumunu geliştir.",
+    significantProgressMsg: "Mükemmel — büyük ilerleme!",
+    gettingWarmerMsg: "Isınıyorsun.",
+    circlingMsg: "Hedefi çevreliyorsun.",
+    movingAwayMsg: "Uzaklaşıyorsun. Geri dön.",
+    wrongDirectionMsg: "Yanlış yön!",
+    foundTargetMsg: "Hedef bulundu!",
+    gameOverMsg: "Hamleler doldu.",
     remove: "Kaldır",
-    north: "Kuzey",
-    south: "Güney",
-    east: "Doğu",
-    west: "Batı",
+    north: "Kuzey", south: "Güney", east: "Doğu", west: "Batı",
+    hintBtn: "Ülke İpucu (−1 hamle)",
+    hintUsed: "İpucu kullanıldı",
+    countryPrefix: "Ülke:",
+    roundLabel: (r: number) => `Tur ${r} / ${TOTAL_ROUNDS}`,
+    roundResult: "Tur Tamamlandı",
+    nextRound: "Sonraki Tur →",
+    finalResult: "Görev Özeti",
+    totalScore: "Toplam Puan",
+    maxScore: `${TOTAL_ROUNDS * 5000} puan max`,
+    playAgain: "Tekrar Oyna",
+    backToMenu: "Ana Menü",
+    distance: "Mesafe",
+    guesses: "Hamle",
+    pts: "puan",
+    leaderboard: "En Yüksek Puanlar",
+    noScores: "Henüz puan yok.",
+    grade: "Not",
   },
 };
 
-const cartographyMapStyles = [
+// ─── Map styles ────────────────────────────────────────────────────────────────
+const lightStyles = [
   { elementType: "geometry", stylers: [{ color: "#f7f6f2" }] },
   { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#57534e" }] },
   { elementType: "labels.text.stroke", stylers: [{ color: "#f7f6f2" }] },
-  { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#d6d3d1" }, { weight: 1 }] },
-  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#f0efe9" }] },
   { featureType: "poi", stylers: [{ visibility: "off" }] },
   { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
   { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#e7e5e4" }] },
-  { featureType: "road.arterial", elementType: "labels.text.fill", stylers: [{ color: "#a8a29e" }] },
-  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#e7e5e4" }] },
-  { featureType: "road.local", elementType: "labels.text.fill", stylers: [{ color: "#d6d3d1" }] },
   { featureType: "transit", stylers: [{ visibility: "off" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#e5e9ea" }] },
-  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#a8a29e" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#dde4e8" }] },
 ];
 
-const cartographyNightMapStyles = [
+const darkStyles = [
   { elementType: "geometry", stylers: [{ color: "#1c1917" }] },
   { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#a8a29e" }] },
   { elementType: "labels.text.stroke", stylers: [{ color: "#1c1917" }] },
-  { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#44403c" }, { weight: 1 }] },
-  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#292524" }] },
   { featureType: "poi", stylers: [{ visibility: "off" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#000000" }] },
-  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#292524" }] },
-  { featureType: "road.arterial", elementType: "labels.text.fill", stylers: [{ color: "#78716c" }] },
-  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#292524" }] },
-  { featureType: "road.local", elementType: "labels.text.fill", stylers: [{ color: "#44403c" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#111" }] },
   { featureType: "transit", stylers: [{ visibility: "off" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#000000" }] },
-  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#44403c" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#000" }] },
 ];
 
+// ─── Utilities ─────────────────────────────────────────────────────────────────
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+  const R = 6371, dLat = ((lat2 - lat1) * Math.PI) / 180, dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function getDirectionLabel(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-  t: (typeof T)["en"],
-) {
-  const latDiff = lat2 - lat1;
-  const lonDiff = lon2 - lon1;
-  let dir = "";
-  if (latDiff > 0) dir += t.north;
-  else if (latDiff < 0) dir += t.south;
-  if (lonDiff > 0) dir += dir ? `-${t.east}` : t.east;
-  else if (lonDiff < 0) dir += dir ? `-${t.west}` : t.west;
-  return dir;
+function getDirLabel(lat1: number, lon1: number, lat2: number, lon2: number, t: typeof T["en"]) {
+  const la = lat2 - lat1, lo = lon2 - lon1;
+  let d = "";
+  if (la > 0) d += t.north; else if (la < 0) d += t.south;
+  if (lo > 0) d += d ? `-${t.east}` : t.east; else if (lo < 0) d += d ? `-${t.west}` : t.west;
+  return d;
 }
 
-function MapContent({ onBack, apiKey, lang }: MapSectionProps) {
+// ─── 360° Street View panorama component ───────────────────────────────────────
+function StreetViewPane({
+  location, onError, onLoaded,
+}: { location: { lat: number; lng: number }; onError: () => void; onLoaded: () => void }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const streetViewLib = useMapsLibrary("streetView");
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setReady(false);
+    if (!streetViewLib || !containerRef.current) return;
+    const svc = new streetViewLib.StreetViewService();
+    svc.getPanorama({ location, radius: 250 }, (data: any, status: any) => {
+      if (status !== "OK" || !data?.location?.latLng || !containerRef.current) {
+        onError();
+        return;
+      }
+      new streetViewLib.StreetViewPanorama(containerRef.current, {
+        position: data.location.latLng,
+        disableDefaultUI: true,
+        clickToGo: false,
+        panControl: false,
+        zoomControl: false,
+        scrollwheel: false,
+        linksControl: false,
+        addressControl: false,
+        fullscreenControl: false,
+        motionTracking: false,
+        motionTrackingControl: false,
+        showRoadLabels: false,
+      });
+      setReady(true);
+      onLoaded();
+    });
+  }, [streetViewLib, location.lat, location.lng]);
+
+  return (
+    <div className="w-full h-full relative">
+      <div ref={containerRef} className="w-full h-full" />
+      {!ready && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background">
+          <Target className="w-5 h-5 text-muted animate-spin-slow opacity-40" strokeWidth={1} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Round Result overlay ──────────────────────────────────────────────────────
+function RoundResultOverlay({
+  result, onNext, isLast, t,
+}: { result: RoundResult; onNext: () => void; isLast: boolean; t: typeof T["en"] }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      className="absolute inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-sm p-6"
+    >
+      <div className="w-full max-w-sm bg-card border border-border p-8 space-y-6">
+        <div className="text-center space-y-1">
+          <p className="text-[10px] uppercase tracking-[0.25em] text-muted font-mono">
+            {t.roundResult}
+          </p>
+          <p className="text-[10px] text-muted font-mono">{t.roundLabel(result.round)}</p>
+        </div>
+
+        <div className="text-center">
+          <div className={`text-5xl font-serif font-bold mb-1 ${scoreColorClass(result.score)}`}>
+            {result.score.toLocaleString()}
+          </div>
+          <div className="text-[11px] text-muted font-mono uppercase tracking-widest">{t.pts}</div>
+        </div>
+
+        {/* Grade */}
+        <div className="flex justify-center">
+          <div className={`w-14 h-14 border-2 flex items-center justify-center text-2xl font-serif font-bold ${scoreColorClass(result.score)} border-current`}>
+            {scoreGrade(result.score)}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-center text-[11px] font-mono text-muted border-t border-border pt-4">
+          <div>
+            <div className="text-foreground font-medium">{result.distanceKm < 1 ? `${Math.round(result.distanceKm * 1000)} m` : `${result.distanceKm.toFixed(1)} km`}</div>
+            <div className="text-[9px] uppercase tracking-wider mt-0.5">{t.distance}</div>
+          </div>
+          <div>
+            <div className="text-foreground font-medium">{result.guessesUsed}</div>
+            <div className="text-[9px] uppercase tracking-wider mt-0.5">{t.guesses}</div>
+          </div>
+        </div>
+
+        <button
+          onClick={onNext}
+          className="w-full border-2 border-accent bg-accent text-white py-3 text-[11px] font-mono uppercase tracking-[0.2em] hover:bg-accent-hover transition-colors flex items-center justify-center gap-2"
+        >
+          {isLast ? t.finalResult : t.nextRound}
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Final Result overlay ──────────────────────────────────────────────────────
+function FinalResultOverlay({
+  results, region, lang, onPlayAgain, onMenu, t,
+}: { results: RoundResult[]; region: Region; lang: Lang; onPlayAgain: () => void; onMenu: () => void; t: typeof T["en"] }) {
+  const total = results.reduce((s, r) => s + r.score, 0);
+  const maxPossible = TOTAL_ROUNDS * 5000;
+  const overall = scoreGrade(Math.round(total / TOTAL_ROUNDS));
+  const board = getLeaderboard();
+
+  useEffect(() => {
+    saveToLeaderboard({ totalScore: total, maxScore: maxPossible, rounds: TOTAL_ROUNDS, region, date: new Date().toLocaleDateString(lang === "tr" ? "tr-TR" : "en-US") });
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="absolute inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-md p-4 overflow-y-auto"
+    >
+      <div className="w-full max-w-sm bg-card border border-border p-6 space-y-5 my-auto">
+        {/* Header */}
+        <div className="text-center">
+          <Trophy className="w-8 h-8 text-accent mx-auto mb-3" strokeWidth={1} />
+          <h2 className="text-xl font-serif italic text-foreground">{t.finalResult}</h2>
+        </div>
+
+        {/* Round breakdown */}
+        <div className="space-y-2">
+          {results.map((r) => (
+            <div key={r.round} className="flex items-center gap-3">
+              <span className="font-mono text-[10px] text-muted w-14 shrink-0">
+                {t.roundLabel(r.round).split(" ").slice(0, 2).join(" ")}
+              </span>
+              <div className="flex-1 h-1.5 bg-muted-bg rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${scoreColorClass(r.score).replace("text-", "bg-")}`}
+                  style={{ width: `${(r.score / 5000) * 100}%`, transition: "width 0.8s ease" }}
+                />
+              </div>
+              <span className={`font-mono text-[11px] w-12 text-right ${scoreColorClass(r.score)}`}>
+                {r.score.toLocaleString()}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Total */}
+        <div className="border-t border-border pt-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-muted font-mono">{t.totalScore}</p>
+            <p className="text-2xl font-serif font-bold text-foreground">{total.toLocaleString()}</p>
+            <p className="text-[10px] text-muted font-mono">{t.maxScore}</p>
+          </div>
+          <div className={`w-14 h-14 border-2 flex items-center justify-center text-2xl font-serif font-bold ${scoreColorClass(Math.round(total / TOTAL_ROUNDS))} border-current`}>
+            {overall}
+          </div>
+        </div>
+
+        {/* Leaderboard */}
+        {board.length > 0 && (
+          <div className="border-t border-border pt-4">
+            <p className="text-[9px] uppercase tracking-[0.25em] text-muted font-mono mb-3 flex items-center gap-2">
+              <Trophy className="w-3 h-3" /> {t.leaderboard}
+            </p>
+            <div className="space-y-1.5">
+              {board.slice(0, 5).map((e, i) => (
+                <div key={i} className="flex items-center justify-between text-[10px] font-mono">
+                  <span className="text-muted">{i + 1}.</span>
+                  <span className="text-muted flex-1 mx-2 truncate">{e.date} · {e.region}</span>
+                  <span className={scoreColorClass(Math.round(e.totalScore / e.rounds))}>{e.totalScore.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <button onClick={onMenu} className="py-3 border border-border text-foreground font-mono text-[10px] uppercase tracking-wider hover:bg-muted-bg transition-colors flex items-center justify-center gap-1.5">
+            <ChevronLeft className="w-3 h-3" /> {t.backToMenu}
+          </button>
+          <button onClick={onPlayAgain} className="py-3 border-2 border-accent bg-accent text-white font-mono text-[10px] uppercase tracking-wider hover:bg-accent-hover transition-colors flex items-center justify-center gap-1.5">
+            <RotateCcw className="w-3 h-3" /> {t.playAgain}
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── MapContent ────────────────────────────────────────────────────────────────
+function MapContent({ onBack, apiKey, lang, region }: MapSectionProps) {
   const map = useMap();
   const t = T[lang];
+
   const [center, setCenter] = useState({ lat: 48.8584, lng: 2.2945 });
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
-  const streetviewRequestId = useRef(0);
+  const [isDark, setIsDark] = useState(false);
+  const [heading, setHeading] = useState(0);
+  const [isPulsing, setIsPulsing] = useState(false);
+  const [isWaypointMode, setIsWaypointMode] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(() => getStoredItem("geoseeker_tutorial_seen_v3") !== "true");
 
-  const [gameState] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    const urlLat = params.get("targetLat");
-    const urlLng = params.get("targetLng");
+  // Round & game state
+  const [currentRound, setCurrentRound] = useState(1);
+  const [roundResults, setRoundResults] = useState<RoundResult[]>([]);
+  const [gamePhase, setGamePhase] = useState<"playing" | "round-result" | "final-result">("playing");
+  const [lastResult, setLastResult] = useState<RoundResult | null>(null);
 
-    let hl = null;
-    if (urlLat && urlLng && !isNaN(parseFloat(urlLat)) && !isNaN(parseFloat(urlLng))) {
-      hl = { lat: parseFloat(urlLat), lng: parseFloat(urlLng) };
-    }
-
-    const savedStr = getStoredItem(STORAGE_KEY);
-    let savedState = null;
-    if (savedStr) {
-      try { savedState = JSON.parse(savedStr); } catch (e) {}
-    }
-
-    if (hl) {
-      if (savedState && savedState.hiddenLocation.lat === hl.lat && savedState.hiddenLocation.lng === hl.lng) {
-        return { ...savedState, isRestored: true };
-      }
-      return { hiddenLocation: hl, guessesCount: 0, gameOver: false, revealed: false, previousDistance: null, waypoints: [], startTime: Date.now(), isRestored: false };
-    } else if (savedState) {
-      return { ...savedState, isRestored: true };
-    } else {
-      return {
-        hiddenLocation: { lat: 48.8584 + (Math.random() - 0.5) * 0.04, lng: 2.2945 + (Math.random() - 0.5) * 0.04 },
-        guessesCount: 0, gameOver: false, revealed: false, previousDistance: null, waypoints: [], startTime: Date.now(), isRestored: false,
-      };
-    }
-  });
-
-  const [hiddenLocation, setHiddenLocation] = useState(gameState.hiddenLocation);
-  const [guessesCount, setGuessesCount] = useState(gameState.guessesCount);
-  const [previousDistance, setPreviousDistance] = useState<number | null>(gameState.previousDistance);
-  const [gameOver, setGameOver] = useState(gameState.gameOver);
-  const [revealed, setRevealed] = useState(gameState.revealed);
-  const [waypoints, setWaypoints] = useState<Array<{ lat: number; lng: number; id: string }>>(gameState.waypoints || []);
-  const [startTime, setStartTime] = useState(gameState.startTime || Date.now());
+  // Per-round state
+  const [hiddenLocation, setHiddenLocation] = useState(() => generateLocation(region));
+  const [guessesCount, setGuessesCount] = useState(0);
+  const [previousDistance, setPreviousDistance] = useState<number | null>(null);
+  const [waypoints, setWaypoints] = useState<Array<{ lat: number; lng: number; id: string }>>([]);
+  const [revealed, setRevealed] = useState(false);
+  const [roundOver, setRoundOver] = useState(false);
+  const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [isRestored, setIsRestored] = useState(gameState.isRestored);
+
+  // Feed state
+  const [svOk, setSvOk] = useState<boolean | null>(null);
+  const [landmark, setLandmark] = useState<string | null>(null);
+  const [countryHint, setCountryHint] = useState<string | null>(null);
+  const [hintUsed, setHintUsed] = useState(false);
+
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const difficulty = new URLSearchParams(window.location.search).get("difficulty") || "medium";
   const winThreshold = difficulty === "hard" ? 0.05 : difficulty === "easy" ? 0.5 : 0.1;
   const hideStreetView = difficulty === "hard";
   const hideDirection = difficulty === "hard";
 
-  const [isDarkTheme, setIsDarkTheme] = useState(false);
-
+  // Dark theme observer
   useEffect(() => {
-    setIsDarkTheme(document.documentElement.classList.contains("dark"));
-    const observer = new MutationObserver(() =>
-      setIsDarkTheme(document.documentElement.classList.contains("dark"))
-    );
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
+    setIsDark(document.documentElement.classList.contains("dark"));
+    const obs = new MutationObserver(() => setIsDark(document.documentElement.classList.contains("dark")));
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
   }, []);
 
+  // Timer
   useEffect(() => {
-    if (gameOver) return;
-    const interval = setInterval(() => setElapsedTime(Math.floor((Date.now() - startTime) / 1000)), 1000);
-    return () => clearInterval(interval);
-  }, [startTime, gameOver]);
+    if (roundOver) return;
+    const id = setInterval(() => setElapsedTime(Math.floor((Date.now() - startTime) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [roundOver, startTime]);
 
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [streetviewImage, setStreetviewImage] = useState<string | null>(null);
-  const [streetviewError, setStreetviewError] = useState<string | null>(null);
-  const [landmark, setLandmark] = useState<string | null>(null);
-  const [isPulsing, setIsPulsing] = useState(false);
-  const [heading, setHeading] = useState(0);
-  const [isWaypointMode, setIsWaypointMode] = useState(false);
-
-  const [showTutorial, setShowTutorial] = useState(() => getStoredItem("geoseeker_tutorial_seen") !== "true");
-
-  useEffect(() => {
-    if (isRestored) {
-      setFeedback(t.gameRestoredMsg);
-      setTimeout(() => { setFeedback(null); setIsRestored(false); }, 3000);
-    }
-  }, [isRestored]);
-
-  useEffect(() => {
-    setStoredItem(STORAGE_KEY, JSON.stringify({ hiddenLocation, guessesCount, gameOver, revealed, previousDistance, waypoints, startTime }));
-  }, [hiddenLocation, guessesCount, gameOver, revealed, previousDistance, waypoints, startTime]);
-
-  // Reverse-geocode hidden location for landmark hint
+  // Geocode hidden location for landmark + country hints
   useEffect(() => {
     if (!window.google?.maps) return;
     const geocoder = new window.google.maps.Geocoder();
     geocoder.geocode({ location: hiddenLocation }, (results: any, status: any) => {
-      if (status === "OK" && results && results.length > 0) {
-        const poi = results.find((r: any) =>
-          r.types.includes("point_of_interest") ||
-          r.types.includes("establishment") ||
-          r.types.includes("route")
-        );
-        const best = poi || results[0];
-        setLandmark(best.address_components[0].long_name);
+      if (status !== "OK" || !results?.length) return;
+      // Landmark
+      const poi = results.find((r: any) => r.types.includes("point_of_interest") || r.types.includes("route"));
+      setLandmark((poi || results[0]).address_components[0].long_name);
+      // Country
+      for (const r of results) {
+        const c = r.address_components.find((a: any) => a.types.includes("country"));
+        if (c) { setCountryHint(c.long_name); break; }
       }
     });
   }, [hiddenLocation]);
 
-  // Fetch street view of the HIDDEN location (GeoGuessr style)
-  useEffect(() => {
-    const requestId = ++streetviewRequestId.current;
-    const timer = setTimeout(() => {
-      setStreetviewImage(null);
-      setStreetviewError(null);
-      fetch(`/api/streetview?lat=${hiddenLocation.lat}&lng=${hiddenLocation.lng}&key=${apiKey}`)
-        .then(async (res) => {
-          if (requestId !== streetviewRequestId.current) return;
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Failed to fetch streetview");
-          if (data.base64) setStreetviewImage(`data:image/jpeg;base64,${data.base64}`);
-        })
-        .catch((err) => {
-          if (requestId !== streetviewRequestId.current) return;
-          setStreetviewError(err.message);
-        });
-    }, 400);
-    return () => { clearTimeout(timer); streetviewRequestId.current += 1; };
-  }, [hiddenLocation.lat, hiddenLocation.lng, apiKey]);
-
   const distance = getDistance(center.lat, center.lng, hiddenLocation.lat, hiddenLocation.lng);
-  const direction = getDirectionLabel(center.lat, center.lng, hiddenLocation.lat, hiddenLocation.lng, t);
+  const direction = getDirLabel(center.lat, center.lng, hiddenLocation.lat, hiddenLocation.lng, t);
 
   let clue: string;
-  if (distance < winThreshold) {
-    clue = t.veryClose;
-  } else if (guessesCount === 0) {
-    clue = t.initialClue;
-  } else if (hideDirection) {
-    clue = t.directionalDisabled(distance.toFixed(1));
-  } else {
-    // Show landmark only after first guess and not on hard
-    const shownLandmark = guessesCount >= 1 && !hideDirection ? landmark : null;
-    clue = t.headDir(direction, distance.toFixed(1), shownLandmark);
-  }
+  if (distance < winThreshold) clue = t.veryClose;
+  else if (guessesCount === 0) clue = t.initialClue;
+  else if (hideDirection) clue = t.directionalDisabled(distance.toFixed(1));
+  else clue = t.headDir(direction, distance.toFixed(1), guessesCount >= 2 ? landmark : null);
+
+  const endRound = useCallback((finalDistance: number, finalGuesses: number) => {
+    const score = calculateScore(finalDistance);
+    const result: RoundResult = { round: currentRound, score, distanceKm: finalDistance, guessesUsed: finalGuesses };
+    const newResults = [...roundResults, result];
+    setRoundResults(newResults);
+    setLastResult(result);
+    setRevealed(true);
+    setRoundOver(true);
+
+    if (currentRound >= TOTAL_ROUNDS) {
+      setGamePhase("final-result");
+    } else {
+      setGamePhase("round-result");
+    }
+  }, [currentRound, roundResults]);
 
   const handleGuess = () => {
-    if (gameOver) return;
+    if (roundOver) return;
     setIsPulsing(true);
-    setTimeout(() => setIsPulsing(false), 500);
-
+    setTimeout(() => setIsPulsing(false), 400);
     const newCount = guessesCount + 1;
     setGuessesCount(newCount);
-    let newFeedback = "";
 
+    let fb = "";
     if (distance < winThreshold) {
-      newFeedback = t.foundTargetMsg;
-      setGameOver(true);
-      setRevealed(true);
+      fb = t.foundTargetMsg;
+      endRound(distance, newCount);
     } else if (newCount >= 10) {
-      newFeedback = t.gameOverMsg;
-      setGameOver(true);
-      setRevealed(true);
+      fb = t.gameOverMsg;
+      endRound(distance, newCount);
     } else if (previousDistance === null) {
-      newFeedback = t.firstGuessMsg;
+      fb = t.firstGuessMsg;
     } else {
       const diff = previousDistance - distance;
-      if (diff > 0.5) newFeedback = t.significantProgressMsg;
-      else if (diff > 0.05) newFeedback = t.gettingWarmerMsg;
-      else if (diff > -0.05) newFeedback = t.circlingMsg;
-      else if (diff > -0.4) newFeedback = t.movingAwayMsg;
-      else newFeedback = t.wrongDirectionMsg;
+      if (diff > 0.5) fb = t.significantProgressMsg;
+      else if (diff > 0.05) fb = t.gettingWarmerMsg;
+      else if (diff > -0.05) fb = t.circlingMsg;
+      else if (diff > -0.4) fb = t.movingAwayMsg;
+      else fb = t.wrongDirectionMsg;
     }
 
     setPreviousDistance(distance);
-    setFeedback(newFeedback);
-    setTimeout(() => setFeedback(null), 3500);
+    if (fb) { setFeedback(fb); setTimeout(() => setFeedback(null), 3000); }
   };
 
-  const handleReset = () => {
-    setHiddenLocation({ lat: 48.8584 + (Math.random() - 0.5) * 0.04, lng: 2.2945 + (Math.random() - 0.5) * 0.04 });
+  const handleHint = () => {
+    if (hintUsed || guessesCount >= 9) return;
+    setHintUsed(true);
+    setGuessesCount((c) => c + 1);
+    if (countryHint) {
+      setFeedback(`${t.countryPrefix} ${countryHint}`);
+      setTimeout(() => setFeedback(null), 5000);
+    }
+  };
+
+  const startNextRound = () => {
+    const nextRound = currentRound + 1;
+    setCurrentRound(nextRound);
+    setHiddenLocation(generateLocation(region));
     setGuessesCount(0);
     setPreviousDistance(null);
     setWaypoints([]);
-    setStartTime(Date.now());
-    setElapsedTime(0);
-    setLandmark(null);
-    setStreetviewImage(null);
-    setStreetviewError(null);
-    setFeedback(t.gameResetMsg);
-    setTimeout(() => setFeedback(null), 3000);
-    setGameOver(false);
     setRevealed(false);
+    setRoundOver(false);
+    setLandmark(null);
+    setCountryHint(null);
+    setHintUsed(false);
+    setSvOk(null);
+    setFeedback(null);
+    setGamePhase("playing");
+  };
+
+  const handlePlayAgain = () => {
+    setCurrentRound(1);
+    setRoundResults([]);
+    setLastResult(null);
+    setHiddenLocation(generateLocation(region));
+    setGuessesCount(0);
+    setPreviousDistance(null);
+    setWaypoints([]);
+    setRevealed(false);
+    setRoundOver(false);
+    setLandmark(null);
+    setCountryHint(null);
+    setHintUsed(false);
+    setSvOk(null);
+    setFeedback(null);
+    setGamePhase("playing");
+  };
+
+  const handleTrace = () => {
+    endRound(distance, guessesCount);
+    setFeedback(t.signalTracedMsg);
+  };
+
+  const handleShare = () => {
     const url = new URL(window.location.href);
-    url.searchParams.delete("targetLat");
-    url.searchParams.delete("targetLng");
-    window.history.replaceState({}, "", url);
+    url.searchParams.set("targetLat", hiddenLocation.lat.toFixed(5));
+    url.searchParams.set("targetLng", hiddenLocation.lng.toFixed(5));
+    const shareUrl = url.toString();
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        setFeedback(t.linkCopiedMsg);
+        setTimeout(() => setFeedback(null), 2500);
+      }).catch(() => window.prompt("Copy:", shareUrl));
+    } else {
+      window.prompt("Copy:", shareUrl);
+    }
   };
 
-  const dismissTutorial = () => {
-    setStoredItem("geoseeker_tutorial_seen", "true");
-    setShowTutorial(false);
-  };
-
-  const feedbackColor = feedback
-    ? feedback === t.linkCopiedMsg
-      ? "bg-blue-50 border-blue-200 text-blue-800"
-      : feedback === t.foundTargetMsg
-      ? "bg-green-50 border-green-200 text-green-800"
-      : feedback === t.gameOverMsg || feedback === t.signalTracedMsg
-      ? "bg-[#f7f6f2] border-accent text-accent"
-      : feedback === t.gettingWarmerMsg
-      ? "bg-orange-50 border-orange-200 text-orange-800"
-      : "bg-card border-border text-foreground"
-    : "";
+  const totalSoFar = roundResults.reduce((s, r) => s + r.score, 0);
 
   return (
-    <div className="relative w-full h-[100dvh] bg-background overflow-hidden flex flex-col md:flex-row font-sans">
-      {/* Image Modal */}
+    <div className="relative w-full h-[100dvh] bg-background overflow-hidden flex flex-col md:flex-row">
+      {/* ─── 360° Modal ──────────────────────────────── */}
       <AnimatePresence>
-        {isImageModalOpen && streetviewImage && (
+        {isModalOpen && svOk && !hideStreetView && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center p-4"
-            onClick={() => setIsImageModalOpen(false)}
+            className="fixed inset-0 z-[200] bg-black/95 flex flex-col"
+            onClick={() => setIsModalOpen(false)}
           >
-            <button
-              className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
-              onClick={() => setIsImageModalOpen(false)}
-            >
-              <X className="w-7 h-7" />
+            <button className="absolute top-4 right-4 z-10 text-white/60 hover:text-white" onClick={() => setIsModalOpen(false)}>
+              <X className="w-6 h-6" />
             </button>
-            <motion.img
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              src={streetviewImage}
-              className="max-w-full max-h-[90vh] object-contain shadow-2xl"
-              alt="Street view"
-              onClick={(e) => e.stopPropagation()}
-            />
+            <div className="flex-1" onClick={(e) => e.stopPropagation()}>
+              <StreetViewPane location={hiddenLocation} onError={() => setIsModalOpen(false)} onLoaded={() => {}} />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Tutorial overlay */}
+      {/* ─── Tutorial ────────────────────────────────── */}
       <AnimatePresence>
         {showTutorial && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md p-6"
-          >
-            <div className="bg-card w-full max-w-md p-8 shadow-2xl border border-border">
-              <div className="flex items-center justify-center mb-6">
-                <Compass className="w-12 h-12 text-foreground/40" strokeWidth={1} />
-              </div>
-              <h3 className="text-2xl font-serif italic text-foreground text-center mb-4">
-                {t.tutorialTitle}
-              </h3>
-              <p className="text-[13px] text-foreground/80 font-light leading-relaxed mb-8 text-center px-4">
-                {t.tutorialBody}
-              </p>
-              <button
-                onClick={dismissTutorial}
-                className="w-full border border-foreground bg-foreground text-card py-3 text-[12px] uppercase tracking-[0.2em] font-medium hover:bg-transparent hover:text-foreground transition-all duration-300"
-              >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-md p-6">
+            <div className="bg-card w-full max-w-md p-8 border border-border shadow-2xl text-center space-y-5">
+              <Compass className="w-10 h-10 text-foreground/30 mx-auto" strokeWidth={1} />
+              <h3 className="text-2xl font-serif italic text-foreground">{t.tutorialTitle}</h3>
+              <p className="text-[13px] text-foreground/70 font-light leading-relaxed">{t.tutorialBody}</p>
+              <button onClick={() => { setStoredItem("geoseeker_tutorial_seen_v3", "true"); setShowTutorial(false); }} className="w-full border border-foreground bg-foreground text-card py-3 text-[11px] uppercase tracking-[0.2em] font-medium hover:bg-transparent hover:text-foreground transition-all">
                 {t.acknowledgeTutorial}
               </button>
             </div>
@@ -481,122 +597,122 @@ function MapContent({ onBack, apiKey, lang }: MapSectionProps) {
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
+      {/* ─── Round & Final Result overlays ───────────── */}
+      <AnimatePresence>
+        {gamePhase === "round-result" && lastResult && (
+          <RoundResultOverlay result={lastResult} onNext={startNextRound} isLast={false} t={t} />
+        )}
+        {gamePhase === "final-result" && (
+          <FinalResultOverlay results={roundResults} region={region} lang={lang} onPlayAgain={handlePlayAgain} onMenu={onBack} t={t} />
+        )}
+      </AnimatePresence>
+
+      {/* ─── Sidebar ─────────────────────────────────── */}
       <motion.div
         initial={{ x: -300, opacity: 0 }}
         animate={{ x: sidebarOpen ? 0 : -300, opacity: sidebarOpen ? 1 : 0 }}
-        transition={{ duration: 0.4, ease: "easeInOut" }}
-        className={`${sidebarOpen ? "w-full md:w-[340px] h-[55%] md:h-full top-auto bottom-0 md:bottom-auto relative" : "w-0 hidden md:block"} bg-card border-t md:border-t-0 md:border-r border-border flex flex-col shrink-0 z-20 shadow-2xl md:shadow-none`}
+        transition={{ duration: 0.35, ease: "easeInOut" }}
+        className={`${sidebarOpen ? "w-full md:w-[340px] h-[55%] md:h-full" : "w-0 hidden md:block"} bg-card border-t md:border-t-0 md:border-r border-border flex flex-col shrink-0 z-20 shadow-2xl md:shadow-none`}
       >
         {sidebarOpen && (
           <>
-            <div className="p-4 border-b border-border flex items-center justify-between bg-muted-bg/50">
-              <button
-                onClick={onBack}
-                className="text-muted hover:text-foreground flex items-center gap-2 text-[11px] uppercase tracking-widest font-medium transition-colors"
-              >
+            {/* Header */}
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted-bg/40">
+              <button onClick={onBack} className="text-muted hover:text-foreground flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-medium transition-colors">
                 <ChevronLeft className="w-4 h-4" strokeWidth={1.5} /> {t.abort}
               </button>
-              <button onClick={() => setSidebarOpen(false)} className="md:hidden text-muted hover:text-foreground">
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-3">
+                {/* Round indicator */}
+                <div className="flex gap-1">
+                  {Array.from({ length: TOTAL_ROUNDS }).map((_, i) => (
+                    <div key={i} className={`w-1.5 h-1.5 rounded-full ${i < currentRound - 1 ? "bg-accent" : i === currentRound - 1 ? "bg-accent animate-pulse" : "bg-border"}`} />
+                  ))}
+                </div>
+                {/* Score so far */}
+                {roundResults.length > 0 && (
+                  <span className="font-mono text-[10px] text-muted">{totalSoFar.toLocaleString()} {t.pts}</span>
+                )}
+                <button onClick={() => setSidebarOpen(false)} className="md:hidden text-muted hover:text-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
-              {/* Intel Report */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-6">
+              {/* Intel */}
               <div>
-                <h2 className="text-[10px] uppercase tracking-[0.25em] text-muted mb-4 border-b border-border pb-2 flex items-center gap-2">
+                <h2 className="text-[9px] uppercase tracking-[0.28em] text-muted mb-3 border-b border-border pb-1.5 flex items-center gap-2">
                   <Eye className="w-3 h-3" /> {t.intelReport}
                 </h2>
-                <p className="text-[14px] font-serif italic leading-relaxed text-foreground/90">
-                  "{clue}"
-                </p>
+                <p className="text-[13px] font-serif italic leading-relaxed text-foreground/85">"{clue}"</p>
+                {hintUsed && countryHint && (
+                  <p className="mt-2 text-[11px] font-mono text-accent/80">{t.countryPrefix} {countryHint}</p>
+                )}
               </div>
 
-              {/* Fix / Coordinates */}
+              {/* Fix */}
               <div>
-                <h2 className="text-[10px] uppercase tracking-[0.25em] text-muted mb-4 border-b border-border pb-2 flex justify-between items-center">
-                  <span className="flex items-center gap-2">
-                    <MapPin className="w-3 h-3" /> {t.fix}
-                  </span>
-                  <div className="flex gap-4">
-                    <span className="font-mono flex items-center gap-1">
-                      <Clock className="w-3 h-3" />{" "}
-                      {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, "0")}
-                    </span>
-                    <span className="font-mono">{guessesCount} {t.attempts}</span>
+                <h2 className="text-[9px] uppercase tracking-[0.28em] text-muted mb-3 border-b border-border pb-1.5 flex justify-between items-center">
+                  <span className="flex items-center gap-2"><MapPin className="w-3 h-3" /> {t.fix}</span>
+                  <div className="flex gap-3 font-mono text-[9px]">
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, "0")}</span>
+                    <span>{guessesCount} {t.attempts}</span>
                   </div>
                 </h2>
-                <div className="bg-muted-bg/50 p-4 border border-border border-dashed font-mono text-sm tracking-tight text-foreground/80 flex flex-col gap-1">
-                  <span>LAT: {center.lat.toFixed(5)}</span>
-                  <span>LNG: {center.lng.toFixed(5)}</span>
+                <div className="bg-muted-bg/40 p-3 border border-border border-dashed font-mono text-[12px] tracking-tight text-foreground/75 grid grid-cols-2 gap-1">
+                  <span>LAT: {center.lat.toFixed(4)}</span>
+                  <span>LNG: {center.lng.toFixed(4)}</span>
                 </div>
               </div>
 
               {/* Visual Feed */}
               <div>
-                <h2 className="text-[10px] uppercase tracking-[0.25em] text-muted mb-4 border-b border-border pb-2 flex items-center gap-2">
+                <h2 className="text-[9px] uppercase tracking-[0.28em] text-muted mb-3 border-b border-border pb-1.5 flex items-center gap-2">
                   <Camera className="w-3 h-3" /> {t.visualFeed}
                 </h2>
                 <div
-                  className={`aspect-[4/3] bg-muted-bg border border-border p-1 relative ${streetviewImage && !hideStreetView ? "cursor-zoom-in group" : ""}`}
-                  onClick={() => streetviewImage && !hideStreetView && setIsImageModalOpen(true)}
+                  className={`aspect-video bg-muted-bg border border-border relative overflow-hidden ${svOk && !hideStreetView ? "cursor-zoom-in group" : ""}`}
+                  onClick={() => svOk && !hideStreetView && setIsModalOpen(true)}
                 >
-                  {/* Corner brackets */}
-                  <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-foreground/50 m-1 z-10" />
-                  <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-foreground/50 m-1 z-10" />
-                  <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-foreground/50 m-1 z-10" />
-                  <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-foreground/50 m-1 z-10" />
-
-                  <div className="w-full h-full relative overflow-hidden bg-background">
-                    {hideStreetView ? (
-                      <div className="flex flex-col items-center justify-center h-full p-4 text-center">
-                        <span className="text-[10px] uppercase tracking-widest text-accent font-medium mb-2">
-                          {t.feedDisabled}
-                        </span>
-                        <p className="text-[10px] text-muted font-mono">{t.feedDisabledDesc}</p>
-                      </div>
-                    ) : streetviewError ? (
-                      <div className="flex flex-col items-center justify-center h-full p-4 text-center">
-                        <span className="text-[10px] uppercase tracking-widest text-accent font-medium mb-2">
-                          {t.feedLost}
-                        </span>
-                        <p className="text-[10px] text-muted font-mono">{streetviewError}</p>
-                      </div>
-                    ) : streetviewImage ? (
-                      <>
-                        <img
-                          src={streetviewImage}
-                          className="w-full h-full object-cover grayscale opacity-90 mix-blend-multiply transition-all duration-300 group-hover:grayscale-0 group-hover:opacity-100"
-                          alt="Street view of target"
-                        />
-                        {/* Enlarge hint */}
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                          <div className="bg-black/60 text-white text-[10px] uppercase tracking-widest px-3 py-1.5 flex items-center gap-1.5">
-                            <Maximize2 className="w-3 h-3" />
-                            {t.clickToEnlarge}
+                  {hideStreetView ? (
+                    <div className="h-full flex flex-col items-center justify-center gap-2 p-4 text-center">
+                      <span className="text-[10px] uppercase tracking-widest text-accent font-medium">{t.feedDisabled}</span>
+                      <p className="text-[10px] text-muted font-mono">{t.feedDisabledDesc}</p>
+                    </div>
+                  ) : svOk === false ? (
+                    <div className="h-full flex flex-col items-center justify-center gap-2 p-4 text-center">
+                      <span className="text-[10px] uppercase tracking-widest text-accent font-medium">{t.feedLost.split("—")[0]}</span>
+                      <p className="text-[10px] text-muted font-mono">{t.feedLost.split("—")[1]}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <StreetViewPane
+                        location={hiddenLocation}
+                        onError={() => setSvOk(false)}
+                        onLoaded={() => setSvOk(true)}
+                      />
+                      {svOk && (
+                        <div className="absolute inset-0 flex items-end justify-center pb-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          <div className="bg-black/60 text-white text-[9px] uppercase tracking-widest px-3 py-1.5 flex items-center gap-1.5 font-mono">
+                            <Maximize2 className="w-3 h-3" /> {t.clickToEnlarge}
                           </div>
                         </div>
-                      </>
-                    ) : (
-                      <div className="flex object-center justify-center h-full items-center">
-                        <Target className="w-6 h-6 text-muted animate-spin-slow opacity-50" strokeWidth={1} />
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Bottom actions */}
-            <div className="p-6 border-t border-border mt-auto bg-muted-bg/30 relative">
+            <div className="p-4 border-t border-border bg-muted-bg/20 space-y-3 relative">
               <AnimatePresence>
                 {feedback && (
                   <motion.div
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    className={`absolute -top-14 left-6 right-6 p-3 text-center text-[11px] uppercase tracking-wider font-bold border shadow-lg ${feedbackColor}`}
+                    exit={{ opacity: 0 }}
+                    className="absolute -top-12 left-4 right-4 bg-card border border-border shadow-lg p-2.5 text-center text-[10px] uppercase tracking-wider font-bold text-foreground"
                   >
                     {feedback}
                   </motion.div>
@@ -605,53 +721,42 @@ function MapContent({ onBack, apiKey, lang }: MapSectionProps) {
 
               <button
                 onClick={handleGuess}
-                disabled={gameOver}
-                className="w-full border-2 border-accent bg-accent text-white py-3 text-[12px] uppercase tracking-[0.2em] font-bold hover:bg-accent-hover hover:border-accent-hover transition-all flex items-center justify-center gap-2 shadow-lg disabled:shadow-none disabled:opacity-50 disabled:cursor-not-allowed group mb-3"
+                disabled={roundOver}
+                className="w-full border-2 border-accent bg-accent text-white py-3 text-[11px] uppercase tracking-[0.2em] font-bold hover:bg-accent-hover transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed group"
               >
                 <Target className="w-4 h-4 group-hover:scale-110 transition-transform" strokeWidth={2} />
                 {t.plotCoordinates}
               </button>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-1.5">
+                {/* Hint */}
+                <button
+                  onClick={handleHint}
+                  disabled={hintUsed || roundOver || guessesCount >= 9}
+                  className="py-2 border border-border font-mono text-[9px] uppercase text-foreground hover:bg-muted-bg transition-colors flex items-center justify-center gap-1 disabled:opacity-35 disabled:cursor-not-allowed"
+                >
+                  <Lightbulb className="w-3 h-3" />
+                  {hintUsed ? t.hintUsed : t.hintBtn.split("(")[0].trim()}
+                </button>
+                {/* Waypoint */}
                 <button
                   onClick={() => setIsWaypointMode(!isWaypointMode)}
-                  className={`w-full bg-transparent border border-border font-mono text-[10px] uppercase py-2.5 transition-colors flex items-center justify-center gap-1.5 ${isWaypointMode ? "bg-muted-bg text-accent" : "text-foreground hover:bg-muted-bg"}`}
+                  className={`py-2 border border-border font-mono text-[9px] uppercase transition-colors flex items-center justify-center gap-1 ${isWaypointMode ? "bg-muted-bg text-accent" : "text-foreground hover:bg-muted-bg"}`}
                 >
-                  <Flag className="w-3 h-3" />
-                  {isWaypointMode ? t.cancelWaypoint : t.placeWaypoint}
+                  <Flag className="w-3 h-3" /> {isWaypointMode ? t.cancelWaypoint : t.placeWaypoint}
                 </button>
+                {/* Trace */}
                 <button
-                  onClick={handleReset}
-                  className="w-full bg-transparent border border-border text-foreground font-mono text-[10px] uppercase py-2.5 hover:bg-muted-bg transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <RotateCcw className="w-3 h-3" /> {t.reset}
-                </button>
-                <button
-                  onClick={() => {
-                    setRevealed(true);
-                    setGameOver(true);
-                    setFeedback(t.signalTracedMsg);
-                  }}
-                  disabled={revealed}
-                  className="w-full bg-transparent border border-border text-foreground font-mono text-[10px] uppercase py-2.5 hover:bg-muted-bg transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleTrace}
+                  disabled={roundOver}
+                  className="py-2 border border-border text-foreground font-mono text-[9px] uppercase hover:bg-muted-bg transition-colors flex items-center justify-center gap-1 disabled:opacity-35 disabled:cursor-not-allowed"
                 >
                   <MapIcon className="w-3 h-3" /> {t.trace}
                 </button>
+                {/* Share */}
                 <button
-                  onClick={() => {
-                    const url = new URL(window.location.href);
-                    url.searchParams.set("targetLat", hiddenLocation.lat.toFixed(5));
-                    url.searchParams.set("targetLng", hiddenLocation.lng.toFixed(5));
-                    const shareUrl = url.toString();
-                    if (navigator.clipboard?.writeText) {
-                      navigator.clipboard.writeText(shareUrl)
-                        .then(() => { setFeedback(t.linkCopiedMsg); setTimeout(() => setFeedback(null), 3000); })
-                        .catch(() => { window.prompt("Copy this link:", shareUrl); });
-                    } else {
-                      window.prompt("Copy this link:", shareUrl);
-                    }
-                  }}
-                  className="w-full bg-transparent border border-border text-foreground font-mono text-[10px] uppercase py-2.5 hover:bg-muted-bg transition-colors flex items-center justify-center gap-1.5"
+                  onClick={handleShare}
+                  className="py-2 border border-border text-foreground font-mono text-[9px] uppercase hover:bg-muted-bg transition-colors flex items-center justify-center gap-1"
                 >
                   <Share2 className="w-3 h-3" /> {t.dispatchLink}
                 </button>
@@ -661,94 +766,70 @@ function MapContent({ onBack, apiKey, lang }: MapSectionProps) {
         )}
       </motion.div>
 
-      {/* Map area */}
-      <div className="flex-1 relative h-full bg-background cartography-grid">
+      {/* ─── Map ─────────────────────────────────────── */}
+      <div className="flex-1 relative h-full">
         {!sidebarOpen && (
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="absolute bottom-6 left-6 md:top-6 md:bottom-auto z-10 w-12 h-12 bg-card border border-border rounded-full flex items-center justify-center shadow-xl text-foreground hover:bg-muted-bg transition-colors"
-          >
-            <Navigation className="w-5 h-5" strokeWidth={1} />
+          <button onClick={() => setSidebarOpen(true)} className="absolute bottom-6 left-6 md:top-6 md:bottom-auto z-10 w-12 h-12 bg-card border border-border rounded-full flex items-center justify-center shadow-xl hover:bg-muted-bg transition-colors">
+            <Navigation className="w-5 h-5 text-foreground" strokeWidth={1} />
           </button>
         )}
 
         {/* Compass + zoom */}
-        <div className="absolute top-6 right-6 z-10 flex flex-col items-center gap-2">
+        <div className="absolute top-4 right-4 z-10 flex flex-col items-center gap-2">
           <div
-            className="w-12 h-12 bg-card border border-border rounded-full flex flex-col items-center justify-center shadow-xl text-foreground relative cursor-pointer hover:bg-muted-bg transition-colors"
+            className="w-11 h-11 bg-card border border-border rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:bg-muted-bg transition-colors"
             onClick={() => map && map.setHeading(0)}
-            title="Reset North"
           >
-            <motion.div
-              animate={{ rotate: -heading }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="w-full h-full relative"
-            >
-              <div className="absolute text-accent text-[11px] font-bold top-1 left-1/2 -translate-x-1/2">N</div>
-              <div className="w-[1.5px] h-[50%] bg-accent absolute bottom-1/2 left-1/2 -translate-x-1/2" style={{ clipPath: "polygon(50% 0%, 100% 100%, 0% 100%)" }} />
-              <div className="w-[1.5px] h-[50%] bg-muted absolute top-1/2 left-1/2 -translate-x-1/2" style={{ clipPath: "polygon(0% 0%, 100% 0%, 50% 100%)" }} />
+            <motion.div animate={{ rotate: -heading }} transition={{ type: "spring", stiffness: 280, damping: 28 }} className="w-full h-full relative">
+              <div className="absolute text-accent text-[10px] font-bold top-1 left-1/2 -translate-x-1/2">N</div>
+              <div className="w-px h-1/2 bg-accent absolute bottom-1/2 left-1/2 -translate-x-1/2" style={{ clipPath: "polygon(50% 0%, 100% 100%, 0% 100%)" }} />
+              <div className="w-px h-1/2 bg-muted absolute top-1/2 left-1/2 -translate-x-1/2" style={{ clipPath: "polygon(0% 0%, 100% 0%, 50% 100%)" }} />
             </motion.div>
           </div>
-
-          <div className="flex flex-col bg-card border border-border shadow-xl overflow-hidden rounded-md mt-2">
-            <button onClick={() => map && map.setZoom((map.getZoom() || 14) + 1)} className="w-9 h-9 flex items-center justify-center hover:bg-muted-bg text-foreground border-b border-border transition-colors">
-              <Plus className="w-4 h-4" strokeWidth={1} />
+          <div className="flex flex-col bg-card border border-border shadow-lg overflow-hidden rounded mt-1">
+            <button onClick={() => map && map.setZoom((map.getZoom() || 14) + 1)} className="w-9 h-9 flex items-center justify-center hover:bg-muted-bg border-b border-border transition-colors text-foreground">
+              <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />
             </button>
-            <button onClick={() => map && map.setZoom((map.getZoom() || 14) - 1)} className="w-9 h-9 flex items-center justify-center hover:bg-muted-bg text-foreground transition-colors">
-              <Minus className="w-4 h-4" strokeWidth={1} />
+            <button onClick={() => map && map.setZoom((map.getZoom() || 14) - 1)} className="w-9 h-9 flex items-center justify-center hover:bg-muted-bg transition-colors text-foreground">
+              <Minus className="w-3.5 h-3.5" strokeWidth={1.5} />
             </button>
           </div>
         </div>
 
         <GoogleMap
-          defaultZoom={14}
-          defaultCenter={center}
+          defaultZoom={3}
+          defaultCenter={{ lat: 20, lng: 0 }}
           mapId={MAP_ID}
-          disableDefaultUI={true}
-          styles={isDarkTheme ? cartographyNightMapStyles : cartographyMapStyles}
+          disableDefaultUI
+          styles={isDark ? darkStyles : lightStyles}
           options={{ draggableCursor: isWaypointMode ? "crosshair" : undefined }}
           onClick={(e) => {
             if (isWaypointMode && e.detail.latLng) {
-              setWaypoints([...waypoints, { lat: e.detail.latLng.lat, lng: e.detail.latLng.lng, id: Date.now().toString() }]);
+              setWaypoints((w) => [...w, { lat: e.detail.latLng!.lat, lng: e.detail.latLng!.lng, id: Date.now().toString() }]);
               setIsWaypointMode(false);
             }
           }}
-          onCameraChanged={(e) => {
-            setCenter(e.detail.center);
-            setHeading(e.detail.heading || 0);
-          }}
+          onCameraChanged={(e) => { setCenter(e.detail.center); setHeading(e.detail.heading || 0); }}
         >
-          {/* Current position marker */}
           <AdvancedMarker position={center} zIndex={50}>
             <motion.div animate={{ scale: isPulsing ? 1.4 : 1 }} transition={{ duration: 0.2 }}>
-              <Pin background="#111111" borderColor="#111111" glyphColor="#ffffff" scale={0.8} />
+              <Pin background="#111" borderColor="#111" glyphColor="#fff" scale={0.8} />
             </motion.div>
           </AdvancedMarker>
 
-          {/* Revealed hidden location */}
           {revealed && (
             <AdvancedMarker position={hiddenLocation} zIndex={60}>
-              <Pin background="#b91c1c" borderColor="#7f1d1d" glyphColor="#ffffff" scale={1.2} />
+              <Pin background="#b91c1c" borderColor="#7f1d1d" glyphColor="#fff" scale={1.2} />
             </AdvancedMarker>
           )}
 
-          {/* Waypoints */}
           {waypoints.map((wp) => (
-            <AdvancedMarker
-              key={wp.id}
-              position={{ lat: wp.lat, lng: wp.lng }}
-              zIndex={45}
-              onClick={() => setWaypoints(waypoints.filter((w) => w.id !== wp.id))}
-            >
+            <AdvancedMarker key={wp.id} position={{ lat: wp.lat, lng: wp.lng }} zIndex={45} onClick={() => setWaypoints((w) => w.filter((x) => x.id !== wp.id))}>
               <div className="cursor-pointer group relative">
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-card text-foreground text-[10px] whitespace-nowrap px-2 py-1 shadow-md opacity-0 group-hover:opacity-100 border border-border pointer-events-none transition-opacity text-center leading-tight z-50">
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 bg-card text-foreground text-[9px] whitespace-nowrap px-2 py-1 shadow border border-border opacity-0 group-hover:opacity-100 transition-opacity">
                   {t.remove}
-                  <br />
-                  {wp.lat.toFixed(4)}, {wp.lng.toFixed(4)}
                 </div>
-                <Pin background="#fcd34d" borderColor="#b45309" glyphColor="#b45309" scale={0.7}>
-                  <div className="w-1.5 h-1.5 bg-amber-900 rounded-full" style={{ margin: "auto" }} />
-                </Pin>
+                <Pin background="#fcd34d" borderColor="#b45309" glyphColor="#b45309" scale={0.7} />
               </div>
             </AdvancedMarker>
           ))}
@@ -758,28 +839,22 @@ function MapContent({ onBack, apiKey, lang }: MapSectionProps) {
   );
 }
 
+// ─── Public export ─────────────────────────────────────────────────────────────
 export default function MapSection(props: MapSectionProps) {
   if (!props.apiKey) {
     const t = T[props.lang];
     return (
       <div className="min-h-[100dvh] bg-background flex items-center justify-center p-6">
         <div className="w-full max-w-md bg-card border border-border shadow-2xl p-8 text-center space-y-5">
-          <p className="text-[10px] uppercase tracking-[0.25em] text-muted">Missing API Key</p>
-          <h1 className="text-3xl font-serif italic text-foreground">Map session unavailable</h1>
-          <p className="text-sm text-muted leading-relaxed">
-            A Google Maps API key is required. Return to the landing screen and add a valid key.
-          </p>
-          <button
-            onClick={props.onBack}
-            className="w-full border-2 border-accent bg-accent text-white py-3 text-[12px] uppercase tracking-[0.2em] font-bold hover:bg-accent-hover transition-colors"
-          >
+          <h1 className="text-2xl font-serif italic text-foreground">Map session unavailable</h1>
+          <p className="text-sm text-muted">A Google Maps API key is required.</p>
+          <button onClick={props.onBack} className="w-full border-2 border-accent bg-accent text-white py-3 text-[12px] uppercase tracking-[0.2em] font-bold hover:bg-accent-hover transition-colors">
             {t.abort}
           </button>
         </div>
       </div>
     );
   }
-
   return (
     <APIProvider apiKey={props.apiKey}>
       <MapContent {...props} />
