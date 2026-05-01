@@ -14,9 +14,14 @@ import MapSection from "./components/MapSection";
 import Footer from "./components/Footer";
 import { getStoredItem, setStoredItem } from "./lib/storage";
 
+export type Lang = "en" | "tr";
+
 export default function App() {
   const [view, setView] = useState<"landing" | "map">("landing");
   const [apiKey, setApiKey] = useState<string>("");
+  const [lang, setLang] = useState<Lang>(() => {
+    return (getStoredItem("peek_lang") as Lang) || "tr";
+  });
 
   useEffect(() => {
     const storedKey = getStoredItem("google_maps_api_key");
@@ -32,6 +37,11 @@ export default function App() {
     setApiKey(trimmed);
   };
 
+  const handleSetLang = (l: Lang) => {
+    setStoredItem("peek_lang", l);
+    setLang(l);
+  };
+
   return (
     <div className="flex flex-col min-h-[100dvh] bg-background">
       {view === "landing" ? (
@@ -40,11 +50,13 @@ export default function App() {
             onStartGame={() => setView("map")}
             apiKey={apiKey}
             onSaveKey={handleSaveKey}
+            lang={lang}
+            onSetLang={handleSetLang}
           />
           <Footer />
         </>
       ) : (
-        <MapSection onBack={() => setView("landing")} apiKey={apiKey} />
+        <MapSection onBack={() => setView("landing")} apiKey={apiKey} lang={lang} />
       )}
     </div>
   );
