@@ -1,7 +1,7 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
-*/
+ */
 
 import express from "express";
 import { createServer } from "http";
@@ -33,9 +33,15 @@ async function startServer() {
         const text = await response.text();
         console.error(`Streetview API Error (${response.status}):`, text);
         if (response.status === 403) {
-            return res.status(403).json({ error: 'Street View Static API is not enabled for this API key.' });
+          return res
+            .status(403)
+            .json({
+              error: "Street View Static API is not enabled for this API key.",
+            });
         }
-        return res.status(response.status).json({ error: `Failed to fetch image: ${response.statusText}` });
+        return res
+          .status(response.status)
+          .json({ error: `Failed to fetch image: ${response.statusText}` });
       }
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -64,7 +70,9 @@ async function startServer() {
   }
 
   httpServer.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT} (Node env: ${process.env.NODE_ENV || "development"})`);
+    console.log(
+      `Server running on port ${PORT} (Node env: ${process.env.NODE_ENV || "development"})`,
+    );
   });
 }
 

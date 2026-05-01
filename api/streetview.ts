@@ -1,11 +1,11 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import { VercelRequest, VercelResponse } from "@vercel/node";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { lat, lng, key } = req.query;
 
     if (!lat || !lng || !key) {
-      return res.status(400).json({ error: 'Missing lat, lng, or key' });
+      return res.status(400).json({ error: "Missing lat, lng, or key" });
     }
 
     const url = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${lat},${lng}&key=${key}`;
@@ -16,7 +16,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error(`Streetview API Error (${response.status}):`, text);
       if (response.status === 403) {
         return res.status(403).json({
-          error: 'Street View Static API is not enabled for this API key.',
+          error: "Street View Static API is not enabled for this API key.",
         });
       }
       return res
@@ -26,13 +26,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const base64 = buffer.toString('base64');
+    const base64 = buffer.toString("base64");
 
     // Cache for 1 hour
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader("Cache-Control", "public, max-age=3600");
     res.json({ base64 });
   } catch (error) {
-    console.error('Error fetching streetview:', error);
-    res.status(500).json({ error: 'Failed to fetch streetview image' });
+    console.error("Error fetching streetview:", error);
+    res.status(500).json({ error: "Failed to fetch streetview image" });
   }
 }

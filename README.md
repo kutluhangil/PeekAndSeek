@@ -113,10 +113,12 @@ npm run preview
 ## Deployment to Vercel
 
 ### Prerequisites
+
 - GitHub repository connected to Vercel
 - Google Cloud project with API key (see [Google Cloud Setup](#google-cloud-setup))
 
 ### Step 1: Push to GitHub
+
 ```bash
 git add .
 git commit -m "Prepare for Vercel deployment"
@@ -124,12 +126,14 @@ git push origin main
 ```
 
 ### Step 2: Import to Vercel
+
 1. Go to [vercel.com](https://vercel.com)
 2. Click **"Add New..." → "Project"**
 3. Select your GitHub repository
 4. Click **"Import"**
 
 ### Step 3: Configure Environment Variables
+
 1. In the Vercel project dashboard, go to **Settings → Environment Variables**
 2. Add the following:
    - **Key:** `VITE_GOOGLE_MAPS_API_KEY`
@@ -138,12 +142,15 @@ git push origin main
 3. Click **"Save"**
 
 ### Step 4: Deploy
+
 1. Click **"Deploy"** in the Vercel dashboard
 2. Wait for the build to complete (usually 1-2 minutes)
 3. Click the deployment URL to test
 
 ### Updating Referrer Restrictions
+
 Once you have your Vercel URL, update your Google Cloud API key's HTTP referrer restrictions:
+
 1. Go to Google Cloud Console → APIs & Services → Credentials
 2. Edit your API key
 3. Under **"Application restrictions"**, add your Vercel domain:
@@ -151,12 +158,15 @@ Once you have your Vercel URL, update your Google Cloud API key's HTTP referrer 
    - Also keep `http://localhost:3000/*` for local development
 
 ### Troubleshooting
+
 - **Build fails:** Ensure `npm run build` works locally (`npm run clean && npm run build`)
 - **Map shows "AuthFailure" on Vercel:** Check that the API key referrer includes your Vercel domain
 - **Environment variables not loading:** Verify they are set in Vercel project settings and redeploy
 
 ### Pre-Deployment Checklist
+
 Before pushing to Vercel, verify:
+
 - [ ] `npm run build` completes without errors
 - [ ] `npm run lint` passes all TypeScript checks
 - [ ] `.env.example` documents all required environment variables
@@ -167,6 +177,7 @@ Before pushing to Vercel, verify:
 - [ ] `api/` directory contains `health.ts` and `streetview.ts`
 
 ### Vercel Deployment Flow
+
 1. Push code to GitHub
 2. Vercel automatically detects changes
 3. Vercel runs `npm run build` to generate `dist/` folder
