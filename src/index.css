@@ -1,41 +1,22 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-sans:
-    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-serif:
-    "Playfair Display", ui-serif, Georgia, Cambria, "Times New Roman", Times,
-    serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, serif;
 }
 
 @layer base {
   :root {
-    --background: #f7f6f2;
-    --foreground: #2b2927;
-
-    --card: #fdfdfc;
-    --card-foreground: #2b2927;
-
-    --border: #dcdad4;
+    --background: #fdfcf8;
+    --foreground: #1c1917;
+    --card: #f5f4ef;
+    --card-foreground: #1c1917;
+    --border: #e5e3dc;
     --muted: #78716c;
-    --muted-bg: #ebe9e4;
-    --accent: #b91c1c;
-    --accent-hover: #991b1b;
-  }
-
-  .dark {
-    --background: #1c1917;
-    --foreground: #e7e5e4;
-
-    --card: #292524;
-    --card-foreground: #e7e5e4;
-
-    --border: #44403c;
-    --muted: #a8a29e;
-    --muted-bg: #44403c;
-    --accent: #dc2626;
-    --accent-hover: #b91c1c;
+    --muted-bg: #edece7;
+    --accent: #1c1917;
+    --accent-hover: #292524;
   }
 }
 
@@ -47,186 +28,24 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  letter-spacing: -0.01em;
-}
-
 .minimal-input {
   outline: none;
   background: transparent;
-  border-bottom: 2px solid var(--border);
-  transition: all 0.2s;
+  border-bottom: 1.5px solid var(--border);
+  transition: border-color 0.2s;
 }
 
 .minimal-input:focus {
-  border-bottom-color: var(--accent);
+  border-bottom-color: var(--foreground);
 }
 
-.cartography-grid {
-  background-image:
-    linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
-  background-size: 3rem 3rem;
-}
-
-@keyframes gridMove {
+@keyframes worldMapScroll {
   from {
-    background-position: 0 0;
+    transform: translateX(0);
   }
   to {
-    background-position: 72px 72px;
+    transform: translateX(-50%);
   }
-}
-
-@keyframes mapDrift {
-  0% {
-    transform: translate(-55%, -51%) scale(1.05);
-  }
-  25% {
-    transform: translate(-48%, -50%) scale(1.08);
-  }
-  50% {
-    transform: translate(-53%, -49%) scale(1.05);
-  }
-  75% {
-    transform: translate(-50%, -53%) scale(1.08);
-  }
-  100% {
-    transform: translate(-55%, -51%) scale(1.05);
-  }
-}
-
-.animate-map-drift {
-  animation: mapDrift 50s ease-in-out infinite;
-  will-change: transform;
-}
-
-@keyframes mapPan {
-  0% {
-    transform: translate3d(-1.5%, -1%, 0) scale(1.04);
-  }
-  50% {
-    transform: translate3d(1.5%, 1.2%, 0) scale(1.08);
-  }
-  100% {
-    transform: translate3d(-1.5%, -1%, 0) scale(1.04);
-  }
-}
-
-.animate-map-pan {
-  animation: mapPan 42s ease-in-out infinite;
-  will-change: transform;
-}
-
-@keyframes flowLine {
-  from {
-    stroke-dashoffset: 0;
-  }
-  to {
-    stroke-dashoffset: -300;
-  }
-}
-
-.animate-flow-line {
-  animation: flowLine 12s linear infinite;
-}
-
-.animate-flow-line-slow {
-  animation: flowLine 20s linear infinite;
-}
-
-@keyframes dashFlow {
-  from {
-    stroke-dashoffset: 0;
-  }
-  to {
-    stroke-dashoffset: -320;
-  }
-}
-
-.animate-dash-flow {
-  animation: dashFlow 16s linear infinite;
-}
-
-.animate-dash-flow-slow {
-  animation: dashFlow 26s linear infinite;
-}
-
-@keyframes floatSlow {
-  0% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(0, -18px, 0) scale(1.04);
-  }
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-.animate-float-slow {
-  animation: floatSlow 14s ease-in-out infinite;
-  will-change: transform;
-}
-
-.animate-float-slower {
-  animation: floatSlow 20s ease-in-out infinite reverse;
-  will-change: transform;
-}
-
-@keyframes scanSweep {
-  0% {
-    transform: translateY(-18%);
-    opacity: 0;
-  }
-  12% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.9;
-  }
-  100% {
-    transform: translateY(118%);
-    opacity: 0;
-  }
-}
-
-.animate-scan-sweep {
-  animation: scanSweep 8.5s linear infinite;
-  will-change: transform, opacity;
-}
-
-@keyframes radarSpin {
-  from {
-    transform: translate3d(-50%, -50%, 0) rotate(0deg);
-  }
-  to {
-    transform: translate3d(-50%, -50%, 0) rotate(360deg);
-  }
-}
-
-.animate-radar-spin {
-  animation: radarSpin 8s linear infinite;
-  will-change: transform;
-}
-
-@keyframes dataPulse {
-  0%,
-  100% {
-    opacity: 0.45;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-.animate-data-pulse {
-  animation: dataPulse 2.8s ease-in-out infinite;
 }
 
 @keyframes spin-slow {
@@ -240,4 +59,19 @@ h6 {
 
 .animate-spin-slow {
   animation: spin-slow 3s linear infinite;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.5s ease both;
 }

@@ -17,6 +17,7 @@ import { getStoredItem, setStoredItem } from "../lib/storage";
 import { generateLocation } from "../lib/regions";
 import { calculateScore, scoreColorClass, scoreGrade } from "../lib/scoring";
 import { getLeaderboard, saveToLeaderboard } from "../lib/leaderboard";
+import { WorldMap } from "./WorldMap";
 import type { Lang } from "../App";
 import type { Region } from "../lib/regions";
 
@@ -560,7 +561,8 @@ function MapContent({ onBack, apiKey, lang, region }: MapSectionProps) {
   const totalSoFar = roundResults.reduce((s, r) => s + r.score, 0);
 
   return (
-    <div className="relative w-full h-[100dvh] bg-background overflow-hidden flex flex-col md:flex-row">
+    <div className="relative w-full h-[100dvh] bg-[var(--background)] overflow-hidden flex flex-col md:flex-row">
+      <WorldMap opacity={0.05} />
       {/* ─── 360° Modal ──────────────────────────────── */}
       <AnimatePresence>
         {isModalOpen && svOk && !hideStreetView && (
@@ -612,12 +614,12 @@ function MapContent({ onBack, apiKey, lang, region }: MapSectionProps) {
         initial={{ x: -300, opacity: 0 }}
         animate={{ x: sidebarOpen ? 0 : -300, opacity: sidebarOpen ? 1 : 0 }}
         transition={{ duration: 0.35, ease: "easeInOut" }}
-        className={`${sidebarOpen ? "w-full md:w-[340px] h-[55%] md:h-full" : "w-0 hidden md:block"} bg-card border-t md:border-t-0 md:border-r border-border flex flex-col shrink-0 z-20 shadow-2xl md:shadow-none`}
+        className={`${sidebarOpen ? "w-full md:w-[340px] h-[55%] md:h-full" : "w-0 hidden md:block"} bg-[var(--card)] border-t md:border-t-0 md:border-r border-[var(--border)] flex flex-col shrink-0 z-20 shadow-xl md:shadow-none`}
       >
         {sidebarOpen && (
           <>
             {/* Header */}
-            <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted-bg/40">
+            <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between bg-[var(--background)]">
               <button onClick={onBack} className="text-muted hover:text-foreground flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-medium transition-colors">
                 <ChevronLeft className="w-4 h-4" strokeWidth={1.5} /> {t.abort}
               </button>
