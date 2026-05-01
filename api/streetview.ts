@@ -3,12 +3,13 @@ import { VercelRequest, VercelResponse } from "@vercel/node";
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { lat, lng, key } = req.query;
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY || (key as string);
 
-    if (!lat || !lng || !key) {
+    if (!lat || !lng || !apiKey) {
       return res.status(400).json({ error: "Missing lat, lng, or key" });
     }
 
-    const url = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${lat},${lng}&key=${key}`;
+    const url = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${lat},${lng}&key=${apiKey}`;
     const response = await fetch(url);
 
     if (!response.ok) {
