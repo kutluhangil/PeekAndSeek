@@ -1,7 +1,9 @@
 declare module "react" {
   const React: any;
   export default React;
-  export function useState<T>(initial: T | (() => T)): [T, (value: any) => void];
+  export function useState<T>(
+    initial: T | (() => T),
+  ): [T, (value: any) => void];
   export function useEffect(effect: any, deps?: any[]): void;
   export function useRef<T = any>(initialValue?: T): { current: T };
   export function useCallback<T extends Function>(fn: T, deps?: any[]): T;
