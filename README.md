@@ -1,207 +1,285 @@
-# Peek & Seek
+<div align="center">
 
-Peek & Seek is a premium hide-and-seek game built around Google Maps, Street View, and directional clueing. The player starts from a styled landing screen, enters a Google Maps API key, chooses a difficulty, and then tries to locate a hidden coordinate on the map within a limited number of guesses.
+<br />
 
-## What The App Does
+<img src="https://img.shields.io/badge/PeekAndSeek-v1.0-000000?style=for-the-badge&logoColor=white" alt="version" />
+<img src="https://img.shields.io/badge/Built_with-TypeScript-3178c6?style=for-the-badge&logo=typescript&logoColor=white" alt="typescript" />
+<img src="https://img.shields.io/badge/React-19-000000?style=for-the-badge&logo=react&logoColor=white" alt="react" />
+<img src="https://img.shields.io/badge/Vite-Build-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="vite" />
+<img src="https://img.shields.io/badge/TailwindCSS-v4-38BDF8?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="tailwind" />
+<img src="https://img.shields.io/badge/Google_Maps-API-4285F4?style=for-the-badge&logo=googlemaps&logoColor=white" alt="googlemaps" />
 
-- Presents a cinematic landing screen with theme switching and difficulty selection.
-- Loads an interactive Google Map with custom cartography-inspired styling.
-- Requests Street View imagery from a lightweight Express proxy route.
-- Gives distance and direction feedback after every guess.
-- Persists game state and the player's API key in localStorage.
-- Supports sharing a hidden target through URL parameters.
+<br /><br />
 
-## Gameplay Loop
-
-1. Enter a valid Google Maps API key.
-2. Pick a difficulty level.
-3. Pan the map to move the active probe.
-4. Read the clue, review the Street View feed, and place waypoints if needed.
-5. Plot coordinates to submit a guess.
-6. Find the target before running out of attempts.
-
-## Usage Screenshot
-
-![Peek and Seek UI preview](docs/usage-preview.png)
-
-## Architecture Diagram
-
-```mermaid
-flowchart LR
-	Browser[Player Browser] -->|Vite dev server| ReactApp[React App]
-	ReactApp -->|Maps JS API| Maps[Google Maps JS API]
-	ReactApp -->|/api/streetview| Proxy[Express proxy]
-	Proxy -->|Street View Static API| StreetView[Google Street View API]
-	ReactApp -->|state| Storage[(localStorage)]
+```text
+ ██████╗ ███████╗███████╗██╗  ██╗    ██╗      ███████╗███████╗███████╗██╗  ██╗
+ ██╔══██╗██╔════╝██╔════╝██║ ██╔╝    ╚██╗     ██╔════╝██╔════╝██╔════╝██║ ██╔╝
+ ██████╔╝█████╗  █████╗  █████╔╝      ╚██╗    ███████╗█████╗  █████╗  █████╔╝ 
+ ██╔═══╝ ██╔══╝  ██╔══╝  ██╔═██╗      ██╔╝    ╚════██║██╔══╝  ██╔══╝  ██╔═██╗ 
+ ██║     ███████╗███████╗██║  ██╗    ██╔╝     ███████║███████╗███████╗██║  ██╗
+ ╚═╝     ╚══════╝╚══════╝╚═╝  ╚═╝    ╚═╝      ╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝
 ```
 
-## Tech Stack
+### **Can you find it on the map?** — A geo-guessing game powered by Google Street View.
 
-- React 19
-- Vite
-- TypeScript
-- Tailwind CSS 4
-- Motion
-- Lucide React
-- @vis.gl/react-google-maps
-- Express for the local Street View proxy
+[Live App](https://peek-and-seek.vercel.app) · [Report Bug](https://github.com/kutluhangil/PeekAndSeek/issues) · [Request Feature](https://github.com/kutluhangil/PeekAndSeek/issues)
 
-## Requirements
+</div>
 
-- Node.js 18 or newer
-- A Google Maps API key with the required Maps and Street View services enabled
+---
 
-## Google Cloud Setup
+## ✦ What is Peek & Seek?
 
-If the map shows `AuthFailure` or `ApiNotActivatedMapError`, the key is present but the Google Cloud project is not fully configured yet.
+**Peek & Seek** is a geography-guessing game that drops you anywhere in the world through Google Street View and challenges you to pin your exact location on a world map.
 
-**See detailed setup guides:**
+Each round gives you up to **10 guesses**. After every pin, you get a warm/cold hint telling you whether you're getting closer or farther. Rack up points across **5 rounds** by finding each location in as few guesses as possible — the fewer the guesses, the higher the score.
 
-- [Turkish Setup Guide](docs/GOOGLE_CLOUD_SETUP_TR.md) - Detailed step-by-step in Turkish
-- [Gemini Assist Prompt](docs/GOOGLE_CLOUD_SETUP_PROMPT.md) - Copy this to Google Cloud's Gemini Assist for AI-guided setup
+Built with a minimal **bone-white** aesthetic, an animated sketch-style world map background, and a scoring system that rewards both precision and instinct.
 
-- Enable `Maps JavaScript API` in the Google Cloud project.
-- Enable `Street View Static API` and `Geocoding API` for the visual feed and clue generation.
-- Make sure billing is active on the project.
-- Add a local referrer allowance for development, such as `http://localhost:3000/*`.
-- If you use API restrictions, allow all three APIs above for the key.
+---
 
-## Setup
+<details>
+<summary><strong>🇹🇷 Türkçe Açıklama</strong></summary>
 
-```bash
-npm install
+<br />
+
+**Peek & Seek**, sizi Google Street View üzerinden dünyanın herhangi bir yerine bırakarak harita üzerinde konumunuzu pin atarak bulmaya çalıştığınız bir coğrafya tahmin oyunudur.
+
+Her tur size **10 hak** verir. Her pin attığınızda, doğru konuma yaklaşıp yaklaşmadığınızı söyleyen bir sıcak/soğuk ipucu alırsınız. **5 turda** mümkün olduğunca az hamlede konumları bularak puan kazanın — az hamle, yüksek puan demektir.
+
+Minimal **kemik beyazı** estetik, hareketli çizim tarzı dünya haritası arka planı ve hassasiyeti ödüllendiren bir puanlama sistemiyle inşa edildi.
+
+</details>
+
+---
+
+## ⚡ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🌍 **Street View Drops** | Each round places you at a random street-level location via Google Street View |
+| 📍 **Pin & Guess** | Click the world map to drop a pin — up to 10 guesses per round |
+| 🌡️ **Warmer / Colder** | Every guess tells you whether you're getting closer or farther from the target |
+| 🏆 **5-Round Scoring** | Exponential scoring rewards precision — fewer guesses = exponentially more points |
+| 🗺️ **Region Selection** | Focus your game on a specific region: World, Europe, Turkey, Americas, or Asia |
+| 🎯 **3 Difficulty Levels** | Novice (wide radius + hints), Explorer (country hint only), Cartographer (no hints) |
+| 🔊 **Sound Effects** | Ambient audio feedback for guesses, correct answers, and round transitions |
+| 🏅 **Leaderboard** | Persistent leaderboard tracking top scores across all sessions |
+| 🌐 **Bilingual UI** | Full English and Turkish language support, switchable at any time |
+| ✏️ **Sketch Map Background** | Animated hand-drawn world map with country names, city labels, and borders |
+
+---
+
+## 🖼️ Screenshots
+
+> *(Coming soon — mockups of the landing page and game interface)*
+
+---
+
+## 🛠️ Tech Stack
+
+```text
+Frontend        →  React 19 · TypeScript (strict) · Tailwind CSS v4
+Build Tool      →  Vite (Fast HMR & Optimized Bundling)
+Maps & Geo      →  @vis.gl/react-google-maps (Maps JS API · Street View · Geocoding)
+UI Elements     →  Lucide React Icons · SVG sketch world map (pure CSS animation)
+Scoring         →  Haversine distance formula · Exponential decay scoring
+Audio Engine    →  Web Audio API (synthesized sound effects)
+Backend         →  Express.js (Street View proxy · leaderboard API)
+Database        →  better-sqlite3 (local leaderboard persistence)
+Deployment      →  Vercel (SPA rewrites · immutable asset caching)
 ```
 
-Create a local `.env` file:
+---
 
-```bash
-VITE_GOOGLE_MAPS_API_KEY=your_api_key_here
+## 🏗️ Architecture
+
+```text
+┌──────────────────────────────────────────────────────────────────┐
+│                        PEEK & SEEK APP                           │
+│                                                                  │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────────────┐ │
+│  │  React 19     │  │  Vite Build   │  │   Google Maps API     │ │
+│  │  Client SPA   │  │  Optimized    │  │  Street View + Geo    │ │
+│  └───────────────┘  └───────────────┘  └───────────────────────┘ │
+└───────────────────────────┬──────────────────────────────────────┘
+                            │
+         ┌──────────────────┼──────────────────┐
+         │                  │                  │
+┌────────────────┐  ┌───────────────┐  ┌───────────────────┐
+│ Street View    │  │ Express Node  │  │  Scoring Engine   │
+│ (Random coord  │  │ (Proxy API +  │  │ (Haversine dist + │
+│  generation)   │  │  Leaderboard) │  │  Exponential pts) │
+└────────────────┘  └───────────────┘  └───────────────────┘
+                            │
+                   ┌────────────────┐
+                   │  SQLite DB     │
+                   │ (Leaderboard   │
+                   │  persistence)  │
+                   └────────────────┘
 ```
 
-Start the app in development mode:
+---
 
-```bash
-npm run dev
+## 📐 Project Structure
+
+```text
+PeekAndSeek/
+├── public/                 # Static assets
+├── api/                    # Vercel serverless functions
+│   ├── health.ts           # Health check endpoint
+│   └── streetview.ts       # Street View location proxy
+├── src/
+│   ├── components/         # React components
+│   │   ├── Footer.tsx      # Application footer
+│   │   ├── LandingPage.tsx # Game config & animated intro screen
+│   │   ├── MapSection.tsx  # Core game: Street View + guess map
+│   │   └── WorldMap.tsx    # Animated SVG sketch world map background
+│   ├── lib/                # Utilities and core logic
+│   │   ├── leaderboard.ts  # Score submission & retrieval
+│   │   ├── regions.ts      # Region bounds & coordinate generation
+│   │   ├── scoring.ts      # Haversine + exponential scoring
+│   │   ├── sounds.ts       # Web Audio API sound synthesis
+│   │   ├── storage.ts      # SQLite leaderboard persistence
+│   │   └── utils.ts        # Tailwind cn helper
+│   ├── App.tsx             # Root state & view orchestration
+│   ├── index.css           # Tailwind v4 + global animations
+│   └── main.tsx            # React entry point
+├── server.ts               # Express server (dev + production)
+├── vercel.json             # SPA rewrites + cache headers
+├── package.json            # Scripts & dependencies
+├── tsconfig.json           # TypeScript configuration
+└── vite.config.ts          # Vite bundler settings
 ```
 
-Build for production:
+---
 
-```bash
-npm run build
-```
-
-Preview a production build locally:
-
-```bash
-npm run preview
-```
-
-## Scripts
-
-- `npm run dev` starts the Express + Vite development server on port `3000`.
-- `npm run build` generates the production bundle.
-- `npm run preview` serves the built app through the production server.
-- `npm run start` builds and then launches the production server.
-- `npm run lint` runs the TypeScript compiler with `--noEmit`.
-- `npm run clean` removes the `dist` folder.
-
-## Environment Variables
-
-- `VITE_GOOGLE_MAPS_API_KEY`: Used by the client-side Google Maps integration.
-- `GEMINI_API_KEY`: Defined in `vite.config.ts` for compatibility with AI-oriented tooling, but not currently used by the gameplay loop.
-
-## Deployment to Vercel
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- GitHub repository connected to Vercel
-- Google Cloud project with API key (see [Google Cloud Setup](#google-cloud-setup))
+- Node.js `>= 18`
+- npm or yarn
+- A [Google Maps API key](https://developers.google.com/maps) with **Maps JS API**, **Street View API**, and **Geocoding API** enabled
 
-### Step 1: Push to GitHub
+### Local Development
 
 ```bash
-git add .
-git commit -m "Prepare for Vercel deployment"
-git push origin main
+# Clone the repository
+git clone https://github.com/kutluhangil/PeekAndSeek.git
+cd PeekAndSeek
+
+# Install dependencies
+npm install
+
+# Start the dev server
+npm run dev
 ```
 
-### Step 2: Import to Vercel
+App runs at `http://localhost:3000`. Enter your Google Maps API key on the landing page to start playing.
 
-1. Go to [vercel.com](https://vercel.com)
-2. Click **"Add New..." → "Project"**
-3. Select your GitHub repository
-4. Click **"Import"**
+### Scripts
 
-### Step 3: Configure Environment Variables
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Development server via `tsx` (Express + Vite middleware) |
+| `npm run build` | Production build into `/dist` |
+| `npm run preview` | Preview the production build locally |
+| `npm run lint` | TypeScript type-check (`tsc --noEmit`) |
+| `npm run clean` | Remove the `dist` folder |
 
-1. In the Vercel project dashboard, go to **Settings → Environment Variables**
-2. Add the following:
-   - **Key:** `VITE_GOOGLE_MAPS_API_KEY`
-   - **Value:** Your Google Maps API key (from Google Cloud Console)
-   - **Environments:** Select `Production`, `Preview`, `Development`
-3. Click **"Save"**
+---
 
-### Step 4: Deploy
+## 🎮 How to Play
 
-1. Click **"Deploy"** in the Vercel dashboard
-2. Wait for the build to complete (usually 1-2 minutes)
-3. Click the deployment URL to test
+1. **Enter your Google Maps API key** on the landing page (stored locally in your browser)
+2. **Choose a difficulty** — Novice, Explorer, or Cartographer
+3. **Choose a region** — World, Europe, Turkey, Americas, or Asia
+4. **Click "Start Playing"** — a Street View panorama loads from a random location
+5. **Drop a pin** on the world map where you think the photo was taken
+6. **Get feedback** — warmer means closer, colder means farther
+7. **Repeat** until you find the spot or exhaust your 10 guesses
+8. **5 rounds total** — your score accumulates across all rounds
 
-### Updating Referrer Restrictions
+### Scoring
 
-Once you have your Vercel URL, update your Google Cloud API key's HTTP referrer restrictions:
+```
+Points per round = max(0, 5000 × e^(−k × guesses))
+```
 
-1. Go to Google Cloud Console → APIs & Services → Credentials
-2. Edit your API key
-3. Under **"Application restrictions"**, add your Vercel domain:
-   - Example: `https://peek-and-seek-abc123.vercel.app/*`
-   - Also keep `http://localhost:3000/*` for local development
+Finding the location on your **first guess** scores the full **5,000 points**. Each additional guess exponentially reduces your score. Maximum possible score across 5 rounds: **25,000 points**.
 
-### Troubleshooting
+### Difficulty Levels
 
-- **Build fails:** Ensure `npm run build` works locally (`npm run clean && npm run build`)
-- **Map shows "AuthFailure" on Vercel:** Check that the API key referrer includes your Vercel domain
-- **Environment variables not loading:** Verify they are set in Vercel project settings and redeploy
+| Level | Hints | Street View | Target Radius |
+|-------|-------|-------------|---------------|
+| **Novice** | Warm/cold feedback | Enabled | Wide |
+| **Explorer** | Country name only | Enabled | Tight |
+| **Cartographer** | No hints | Disabled | Tight |
 
-### Pre-Deployment Checklist
+---
 
-Before pushing to Vercel, verify:
+## 🔒 Configuration & Storage
 
-- [ ] `npm run build` completes without errors
-- [ ] `npm run lint` passes all TypeScript checks
-- [ ] `.env.example` documents all required environment variables
-- [ ] `VITE_GOOGLE_MAPS_API_KEY` is set in Vercel Project Settings
-- [ ] API key referrer restrictions include your Vercel domain
-- [ ] Git repository is up to date: `git status` shows no uncommitted changes
-- [ ] `vercel.json` is present in project root
-- [ ] `api/` directory contains `health.ts` and `streetview.ts`
+| Layer | Implementation |
+|-------|----------------|
+| **API Key** | Stored in `localStorage` — never sent to any server |
+| **Leaderboard** | Persisted in SQLite via `better-sqlite3` on the Express server |
+| **Street View Proxy** | `/api/streetview` handles coordinate generation server-side |
+| **Region Bounds** | Coordinate bounding boxes defined in `src/lib/regions.ts` |
 
-### Vercel Deployment Flow
+---
 
-1. Push code to GitHub
-2. Vercel automatically detects changes
-3. Vercel runs `npm run build` to generate `dist/` folder
-4. Static files (`dist/*`) served to users
-5. API routes (`api/*`) run as serverless functions
-6. If `.env` is missing, fall back to Vercel environment variables
+## ☁️ Deployment to Vercel
 
-## Project Structure
+### Quick Deploy
 
-- `src/App.tsx`: Top-level view switch between the landing page and the map game.
-- `src/components/LandingPage.tsx`: Landing screen, key entry, and difficulty selection.
-- `src/components/MapSection.tsx`: Core game board, sidebar, timers, clues, and guesses.
-- `src/components/Footer.tsx`: Attribution and social links.
-- `src/lib/sounds.ts`: Small Web Audio sound effects for click, success, and failure feedback.
-- `src/lib/utils.ts`: Shared utility helpers.
-- `server.ts`: Development server plus `/api/streetview` proxy endpoint.
-- `src/index.css`: Global theme tokens and utility classes.
+1. Push to GitHub and import the repository into Vercel
+2. Set environment variables in **Settings → Environment Variables**:
+   - `VITE_GOOGLE_MAPS_API_KEY` — your Google Maps API key
+3. Deploy — the `vercel-build` script handles the rest
 
-## Notes
+### Google Cloud Setup
 
-- Game progress is persisted in localStorage so the session can survive reloads.
-- The Street View proxy keeps the browser code simple and avoids directly handling image responses in the client.
-- If the map is opened without a valid key, the app now shows a dedicated fallback screen instead of failing silently.
+Enable the following APIs in your Google Cloud project:
 
-## License
+- **Maps JavaScript API**
+- **Street View Static API**
+- **Geocoding API**
 
-This repository includes Apache-2.0 license headers in source files.
+Make sure billing is active, and add your Vercel domain to the API key's HTTP referrer restrictions:
+
+```
+https://your-project.vercel.app/*
+http://localhost:3000/*
+```
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to open an issue or submit a pull request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+Distributed under the MIT License. See `LICENSE` for details.
+
+---
+
+<div align="center">
+
+Built with precision by [kutluhangil](https://github.com/kutluhangil)
+
+<br />
+
+*If you find this useful, consider giving it a ⭐*
+
+</div>
