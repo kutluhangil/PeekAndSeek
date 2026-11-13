@@ -1,7 +1,6 @@
 {
   "version": 2,
   "outputDirectory": "dist",
-  "public": true,
   "rewrites": [
     {
       "source": "/(.*)",
